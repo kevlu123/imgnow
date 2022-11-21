@@ -1,6 +1,7 @@
 #include "window.h"
 #include "image.h"
 #include "SDL_syswm.h"
+#include <chrono>
 
 const char* SDLException::what() const noexcept {
 	return SDL_GetError();
@@ -38,6 +39,7 @@ Window::~Window() {
 }
 
 bool Window::ProcessMessages() {
+	scrollDelta = {};
 	SDL_Event ev{};
 	while (SDL_PollEvent(&ev)) {
 		switch (ev.type) {
@@ -48,6 +50,20 @@ bool Window::ProcessMessages() {
 			break;
 		case SDL_KEYUP:
 			keyStates[ev.key.keysym.scancode] = KeyState::Released;
+			break;
+		case SDL_MOUSEBUTTONDOWN:
+			mouseStates[ev.button.button - 1] = KeyState::Pressed;
+			break;
+		case SDL_MOUSEBUTTONUP:
+			mouseStates[ev.button.button - 1] = KeyState::Released;
+			break;
+		case SDL_MOUSEWHEEL:
+			scrollDelta.first += ev.wheel.preciseX;
+			scrollDelta.second += ev.wheel.preciseY;
+			break;
+		case SDL_MOUSEMOTION:
+			mousePosition.first = ev.motion.x;
+			mousePosition.second = ev.motion.y;
 			break;
 		}
 	}
@@ -60,6 +76,14 @@ void Window::UpdateInput() {
 			keyStates[pair.first] = KeyState::Down;
 		} else if (pair.second == KeyState::Released) {
 			keyStates[pair.first] = KeyState::Up;
+		}
+	}
+	
+	for (auto& state : mouseStates) {
+		if (state == KeyState::Pressed) {
+			state = KeyState::Down;
+		} else if (state == KeyState::Released) {
+			state = KeyState::Up;
 		}
 	}
 }
@@ -79,6 +103,26 @@ bool Window::GetKeyReleased(SDL_Scancode key) const {
 	return it != keyStates.end() && it->second == KeyState::Released;
 }
 
+bool Window::GetMouseDown(int button) const {
+	return mouseStates[button - 1] == KeyState::Down || mouseStates[button - 1] == KeyState::Pressed;
+}
+
+bool Window::GetMousePressed(int button) const {
+	return mouseStates[button - 1] == KeyState::Pressed;
+}
+
+bool Window::GetMouseReleased(int button) const {
+	return mouseStates[button - 1] == KeyState::Released;
+}
+
+std::pair<float, float> Window::GetScrollDelta() const {
+	return scrollDelta;
+}
+
+std::pair<int, int> Window::GetMousePosition() const {
+	return mousePosition;
+}
+
 SDL_Window* Window::GetWindow() const {
 	return window;
 }
@@ -92,14 +136,20 @@ HWND Window::GetHwnd() const {
 }
 
 void Window::Run() {
+	using namespace std::chrono;
+	auto lastTime = high_resolution_clock::now();
 	while (ProcessMessages()) {
-		Update();
+		auto now = high_resolution_clock::now();
+		auto dt = duration_cast<duration<float>>(now - lastTime).count();
+		lastTime = now;
+
+		Update(dt);
 		Render();
 		UpdateInput();
 	}
 }
 
-void Window::Update() {
+void Window::Update(float dt) {
 }
 
 void Window::Render() const {

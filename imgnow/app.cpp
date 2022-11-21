@@ -8,6 +8,12 @@ App::App(int argc, char** argv) : Window(800, 600) {
 		image.future = std::move(future);
 		images.push_back(std::move(image));
 	}
+	
+	if (argc <= 1) {
+		SDL_SetWindowTitle(GetWindow(), "imgnow");
+	} else {
+		SDL_SetWindowTitle(GetWindow(), argv[1]);
+	}
 }
 
 App::~App() {
@@ -18,15 +24,70 @@ App::~App() {
 	}
 }
 
-void App::Update() {
+void App::Update(float dt) {
 	CheckImageFinishedLoading();
+	
+	auto [mx, my] = GetMousePosition();
+	auto [_, sy] = GetScrollDelta();
+	sy *= dt * 5;
+
+	if (!images.empty()) {
+		auto& image = images[activeImageIndex];
+		if (image.image.Valid()) {
+			// Zoom
+			if (sy) {
+				float& oldScale = image.transform.scale;
+				float newScale = oldScale + sy * oldScale;
+				image.transform.x = (image.transform.x - mx) / oldScale * newScale + mx;
+				image.transform.y = (image.transform.y - my) / oldScale * newScale + my;
+				oldScale = newScale;
+			}
+
+			// Begin drag
+			else if (GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) {
+				dragLocation.x = mx;
+				dragLocation.y = my;
+			}
+
+			// Continue drag
+			else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
+				image.transform.x += mx - dragLocation.x;
+				image.transform.y += my - dragLocation.y;
+				dragLocation.x = mx;
+				dragLocation.y = my;
+			}
+		}
+	}
 }
 
 void App::Render() const {
 	SDL_RenderClear(GetRenderer());
 
-	if (!images.empty() && images[0].texture) {
-		SDL_RenderCopy(GetRenderer(), images[0].texture, nullptr, nullptr);
+	// Draw active image
+	if (!images.empty()) {
+		const auto& image = images[activeImageIndex];
+		if (image.image.Valid()) {
+			SDL_Rect dst{};
+			dst.x = (int)image.transform.x;
+			dst.y = (int)image.transform.y;
+			dst.w = (int)(image.transform.scale * image.image.GetWidth());
+			dst.h = (int)(image.transform.scale * image.image.GetHeight());
+
+			SDL_RendererFlip flip{};
+			if (image.transform.flipHorizontal)
+				SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
+			if (image.transform.flipVertical)
+				SDL_RendererFlip::SDL_FLIP_VERTICAL;
+			
+			SDL_RenderCopyEx(
+				GetRenderer(),
+				image.texture,
+				nullptr,
+				&dst,
+				90 * image.transform.rotation,
+				nullptr,
+				flip);
+		}
 	}
 
 	SDL_RenderPresent(GetRenderer());
@@ -58,8 +119,12 @@ void App::CheckImageFinishedLoading() {
 			img.GetHeight());
 		if (!tex)
 			throw SDLException();
+		
+		int ec = SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+		if (ec)
+			throw SDLException();
 
-		int ec = SDL_UpdateTexture(
+		ec = SDL_UpdateTexture(
 			tex,
 			nullptr,
 			img.GetPixels().data(),
