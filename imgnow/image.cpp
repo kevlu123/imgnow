@@ -49,6 +49,14 @@ int Image::GetHeight() const {
 	return height;
 }
 
+float Image::GetAspectRatio() const {
+	if (height == 0) {
+		return 1;
+	} else {
+		return (float)width / height;
+	}
+}
+
 std::span<const uint8_t> Image::GetPixels() const {
 	return data;
 }

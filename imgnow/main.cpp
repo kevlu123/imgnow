@@ -7,6 +7,7 @@ int main(int argc, char** argv) {
 		"testdata/1.jpg",
 		"testdata/2.jpg",
 		"testdata/3.jpg",
+		"testdata/4.jpg",
 	};
 	argc = sizeof(_argv) / sizeof(_argv[0]);
 	argv = (char**)_argv;

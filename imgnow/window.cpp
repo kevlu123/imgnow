@@ -24,6 +24,8 @@ Window::Window(int width, int height) {
 	ec = SDL_RenderSetVSync(renderer, 1);
 	if (ec)
 		throw SDLException();
+	
+	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
 	// Get native window handle
 	SDL_SysWMinfo wmInfo{};
@@ -123,6 +125,12 @@ std::pair<int, int> Window::GetMousePosition() const {
 	return mousePosition;
 }
 
+std::pair<int, int> Window::GetClientSize() const {
+	int w, h;
+	SDL_GetWindowSize(window, &w, &h);
+	return { w, h };
+}
+
 SDL_Window* Window::GetWindow() const {
 	return window;
 }
@@ -135,22 +143,22 @@ HWND Window::GetHwnd() const {
 	return hwnd;
 }
 
+float Window::GetDeltaTime() const {
+	return deltaTime;
+}
+
 void Window::Run() {
 	using namespace std::chrono;
 	auto lastTime = high_resolution_clock::now();
 	while (ProcessMessages()) {
 		auto now = high_resolution_clock::now();
-		auto dt = duration_cast<duration<float>>(now - lastTime).count();
+		deltaTime = duration_cast<duration<float>>(now - lastTime).count();
 		lastTime = now;
 
-		Update(dt);
-		Render();
+		Update();
 		UpdateInput();
 	}
 }
 
-void Window::Update(float dt) {
-}
-
-void Window::Render() const {
+void Window::Update() {
 }

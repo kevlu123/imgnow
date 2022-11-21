@@ -19,8 +19,7 @@ struct Window {
 	Window(int width, int height);
 	~Window();
 	void Run();
-	virtual void Update(float dt);
-	virtual void Render() const;
+	virtual void Update();
 	bool GetKeyDown(SDL_Scancode key) const;
 	bool GetKeyPressed(SDL_Scancode key) const;
 	bool GetKeyReleased(SDL_Scancode key) const;
@@ -29,9 +28,11 @@ struct Window {
 	bool GetMouseReleased(int button) const;
 	std::pair<float, float> GetScrollDelta() const;
 	std::pair<int, int> GetMousePosition() const;
+	std::pair<int, int> GetClientSize() const;
 	SDL_Window* GetWindow() const;
 	SDL_Renderer* GetRenderer() const;
 	HWND GetHwnd() const;
+	float GetDeltaTime() const;
 private:
 	bool ProcessMessages();
 	void UpdateInput();
@@ -44,6 +45,7 @@ private:
 	std::array<KeyState, 5> mouseStates{};
 	std::pair<float, float> scrollDelta{};
 	std::pair<int, int> mousePosition{};
+	float deltaTime = 0;
 };
 
 static_assert(SDL_BUTTON_LEFT == 1);

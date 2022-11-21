@@ -1,6 +1,10 @@
 #include "app.h"
+#include <tuple>
+	
+constexpr int SIDEBAR_WIDTH = 100;
+constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
 
-App::App(int argc, char** argv) : Window(800, 600) {
+App::App(int argc, char** argv) : Window(1280, 720) {
 	// Begin loading images asynchronously
 	for (int i = 1; i < argc; i++) {
 		auto future = std::async(std::launch::async, [i, argv] { return Image(argv[i]); });
@@ -24,12 +28,23 @@ App::~App() {
 	}
 }
 
-void App::Update(float dt) {
+void App::Update() {
 	CheckImageFinishedLoading();
-	
+
+	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
+	SDL_RenderClear(GetRenderer());
+
+	UpdateActiveImage();
+	UpdateSidebar();
+
+	SDL_RenderPresent(GetRenderer());
+}
+
+void App::UpdateActiveImage() {
+	auto [cw, ch] = GetClientSize();
 	auto [mx, my] = GetMousePosition();
 	auto [_, sy] = GetScrollDelta();
-	sy *= dt * 5;
+	sy *= GetDeltaTime() * 5;
 
 	if (!images.empty()) {
 		auto& image = images[activeImageIndex];
@@ -45,27 +60,31 @@ void App::Update(float dt) {
 
 			// Begin drag
 			else if (GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) {
-				dragLocation.x = mx;
-				dragLocation.y = my;
+				if (mx < cw - SIDEBAR_WIDTH) {
+					dragLocation = { mx, my };
+				}
 			}
 
 			// Continue drag
 			else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
-				image.transform.x += mx - dragLocation.x;
-				image.transform.y += my - dragLocation.y;
-				dragLocation.x = mx;
-				dragLocation.y = my;
+				if (dragLocation) {
+					image.transform.x += mx - dragLocation.value().x;
+					image.transform.y += my - dragLocation.value().y;
+					dragLocation.value().x = mx;
+					dragLocation.value().y = my;
+				}
+			}
+
+			// End drag
+			else {
+				dragLocation = std::nullopt;
 			}
 		}
 	}
-}
-
-void App::Render() const {
-	SDL_RenderClear(GetRenderer());
 
 	// Draw active image
 	if (!images.empty()) {
-		const auto& image = images[activeImageIndex];
+		const auto& image = images[hoverImageIndex.value_or(activeImageIndex)];
 		if (image.image.Valid()) {
 			SDL_Rect dst{};
 			dst.x = (int)image.transform.x;
@@ -78,7 +97,7 @@ void App::Render() const {
 				SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
 			if (image.transform.flipVertical)
 				SDL_RendererFlip::SDL_FLIP_VERTICAL;
-			
+
 			SDL_RenderCopyEx(
 				GetRenderer(),
 				image.texture,
@@ -89,8 +108,69 @@ void App::Render() const {
 				flip);
 		}
 	}
+}
 
-	SDL_RenderPresent(GetRenderer());
+void App::UpdateSidebar() {
+	if (!SidebarVisible())
+		return;
+
+	auto [cw, ch] = GetClientSize();
+
+	// Draw background
+	SDL_Rect sbRc{};
+	sbRc.x = cw - SIDEBAR_WIDTH;
+	sbRc.w = SIDEBAR_WIDTH;
+	sbRc.h = ch;
+	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 200);
+	SDL_RenderFillRect(GetRenderer(), &sbRc);
+
+	// Mini icons
+	hoverImageIndex = std::nullopt;
+	float y = sidebarScroll;
+	for (size_t i = 0; i < images.size(); i++) {
+		const auto& image = images[i];
+
+		SDL_Rect rc{};
+		rc.w = SIDEBAR_WIDTH - 2 * SIDEBAR_BORDER;
+		rc.x = sbRc.x + SIDEBAR_BORDER;
+		rc.y = (int)y + SIDEBAR_BORDER;
+		rc.h = (int)(rc.w / image.image.GetAspectRatio());
+		if (image.texture) {
+			SDL_RenderCopy(GetRenderer(), image.texture, nullptr, &rc);
+		} else {
+			// Texture hasn't loaded yet so fill with placeholder
+			SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
+			SDL_RenderFillRect(GetRenderer(), &rc);
+		}
+
+		// Highlight if image is active
+		if (activeImageIndex == i) {
+			SDL_SetRenderDrawColor(GetRenderer(), 255, 255, 255, 255);
+			SDL_RenderDrawRect(GetRenderer(), &rc);
+		}
+
+		// Highlight if cursor is over icon
+		else {
+			SDL_Point mp{};
+			std::tie(mp.x, mp.y) = GetMousePosition();
+
+			SDL_Rect hitbox{};
+			hitbox.x = sbRc.x;
+			hitbox.y = (int)y + SIDEBAR_BORDER / 2;
+			hitbox.w = sbRc.w;
+			hitbox.h = rc.h + SIDEBAR_BORDER;
+			if (SDL_PointInRect(&mp, &hitbox)) {
+				SDL_SetRenderDrawColor(GetRenderer(), 150, 150, 150, 255);
+				SDL_RenderDrawRect(GetRenderer(), &rc);
+				hoverImageIndex = i;
+				if (GetMousePressed(SDL_BUTTON_LEFT)) {
+					activeImageIndex = i;
+				}
+			}
+		}
+
+		y += SIDEBAR_BORDER + rc.h;
+	}
 }
 
 void App::CheckImageFinishedLoading() {
@@ -99,9 +179,11 @@ void App::CheckImageFinishedLoading() {
 		if (!image.future.valid())
 			continue;
 
+		// Check if image has loaded
 		if (image.future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 			continue;
 
+		// Check for errors
 		Image img = image.future.get();
 		if (!img.Valid()) {
 			images.erase(images.begin() + i);
@@ -111,6 +193,7 @@ void App::CheckImageFinishedLoading() {
 			continue;
 		}
 
+		// Create texture
 		SDL_Texture* tex = SDL_CreateTexture(
 			GetRenderer(),
 			SDL_PIXELFORMAT_RGBA32,
@@ -132,7 +215,24 @@ void App::CheckImageFinishedLoading() {
 		if (ec)
 			throw SDLException();
 
+		// Set transform
+		auto [cw, ch] = GetClientSize();
+		float windowAspect = (float)cw / ch;
+		float imgAspect = img.GetAspectRatio();
+		if (imgAspect > windowAspect) {
+			image.transform.scale = (float)cw / img.GetWidth();
+		} else {
+			image.transform.scale = (float)ch / img.GetHeight();
+		}
+		image.transform.x = (cw - img.GetWidth() * image.transform.scale) / 2;
+		image.transform.y = (ch - img.GetHeight() * image.transform.scale) / 2;
+
+		// Store image and texture to be accessed later
 		image.image = std::move(img);
 		image.texture = tex;
 	}
+}
+
+bool App::SidebarVisible() const {
+	return images.size() > 1;
 }

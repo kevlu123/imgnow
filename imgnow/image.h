@@ -14,6 +14,7 @@ struct Image {
 	Image& operator=(Image&&) noexcept;
 	int GetWidth() const;
 	int GetHeight() const;
+	float GetAspectRatio() const;
 	std::span<const uint8_t> GetPixels() const;
 	const std::string& Path() const;
 	bool Valid() const;

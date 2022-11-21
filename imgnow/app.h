@@ -1,5 +1,6 @@
 #pragma once
 #include "window.h"
+#include <optional>
 
 struct ImageEntity {
 	std::future<Image> future;
@@ -18,11 +19,15 @@ struct ImageEntity {
 struct App : Window {
 	App(int argc, char** argv);
 	~App();
-	void Update(float dt) override;
-	void Render() const override;
+	void Update() override;
 private:
+	void UpdateActiveImage();
+	void UpdateSidebar();
 	void CheckImageFinishedLoading();
+	bool SidebarVisible() const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
-	struct { int x, y; } dragLocation{};
+	std::optional<size_t> hoverImageIndex = 0;
+	std::optional<SDL_Point> dragLocation;
+	float sidebarScroll = 0;
 };
