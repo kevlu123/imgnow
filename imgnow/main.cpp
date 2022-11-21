@@ -2,16 +2,19 @@
 #include "app.h"
 
 int main(int argc, char** argv) {
-	//if (argc <= 1) {
-	//	// Maybe add file picker instead later if I feel like it
-	//	SDL_ShowSimpleMessageBox(0, "Error", "No files specified", NULL);
-	//	return 1;
-	//}
+	//const char* _argv[] = {
+	//	"[executable name]",
+	//	"testdata/1.jpg",
+	//	"testdata/2.jpg",
+	//	"testdata/3.jpg",
+	//};
+	//argc = sizeof(_argv) / sizeof(_argv[0]);
+	//argv = (char**)_argv;
 	
 	try {
 		App(argc, argv).Run();
 	} catch (SDLException& ex) {
-		SDL_ShowSimpleMessageBox(0, "Error", ex.what(), NULL);
+		SDL_ShowSimpleMessageBox(0, "Error", ex.what(), nullptr);
 		return 2;
 	}
 	

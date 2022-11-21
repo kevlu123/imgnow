@@ -1,16 +1,26 @@
 #pragma once
 #include <stdint.h> // uint8_t
 #include <stddef.h> // size_t
-#include <vector>
+#include <string>
+#include <span>
 
-struct Colour {
-	uint8_t r, g, b, a;
+struct Image {
+	~Image();
+	Image(const char* path);
+	Image(const Image&) = delete;
+	Image(Image&&) noexcept;
+	Image& operator=(const Image&) = delete;
+	Image& operator=(Image&&) noexcept;
+	int GetWidth() const;
+	int GetHeight() const;
+	std::span<const uint8_t> GetPixels() const;
+	const std::string& Path() const;
+	bool Valid() const;
+	const std::string& Error() const;
+private:
+	int width = 0;
+	int height = 0;
+	std::span<uint8_t> data;
+	std::string path;
+	std::string error;
 };
-
-struct Bitmap {
-	size_t width = 0;
-	size_t height = 0;
-	std::vector<Colour> pixels;
-};
-
-Bitmap LoadImage(const char* path);
