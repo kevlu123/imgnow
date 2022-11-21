@@ -1,12 +1,5 @@
 #pragma once
-#include "image.h"
-#include "SDL.h"
-#include <vector>
-#include <future>
-
-struct SDLException : std::exception {
-	const char* what() const noexcept override;
-};
+#include "window.h"
 
 struct ImageEntity {
 	std::future<Image> future;
@@ -14,18 +7,12 @@ struct ImageEntity {
 	SDL_Texture* texture;
 };
 
-struct App {
+struct App : Window {
 	App(int argc, char** argv);
 	~App();
-	void Run();
+	void Update() override;
+	void Render() const override;
 private:
-	bool ProcessMessages();
-	void Update();
-	void Render() const;
 	void CheckImageFinishedLoading();
-	
-	SDL_Window* window = nullptr;
-	SDL_Renderer* renderer = nullptr;
 	std::vector<ImageEntity> images;
-	bool quit = false;
 };

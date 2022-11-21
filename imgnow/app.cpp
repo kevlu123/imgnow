@@ -1,11 +1,6 @@
 #include "app.h"
-#include "image.h"
 
-const char* SDLException::what() const noexcept {
-	return SDL_GetError();
-}
-
-App::App(int argc, char** argv) {
+App::App(int argc, char** argv) : Window(800, 600) {
 	// Begin loading images asynchronously
 	for (int i = 1; i < argc; i++) {
 		auto future = std::async(std::launch::async, [i, argv] { return Image(argv[i]); });
@@ -13,23 +8,6 @@ App::App(int argc, char** argv) {
 		image.future = std::move(future);
 		images.push_back(std::move(image));
 	}
-
-	// Initialize SDL
-	int ec = SDL_Init(SDL_INIT_VIDEO);
-	if (ec)
-		throw SDLException();
-
-	ec = SDL_CreateWindowAndRenderer(
-		800, 600,
-		SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN,
-		&window,
-		&renderer);
-	if (ec)
-		throw SDLException();
-
-	ec = SDL_RenderSetVSync(renderer, 1);
-	if (ec)
-		throw SDLException();
 }
 
 App::~App() {
@@ -38,27 +16,6 @@ App::~App() {
 			SDL_DestroyTexture(image.texture);
 		}
 	}
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
-	SDL_Quit();
-}
-
-bool App::ProcessMessages() {
-	SDL_Event ev{};
-	while (SDL_PollEvent(&ev)) {
-		switch (ev.type) {
-		case SDL_QUIT:
-			return false;
-		}
-	}
-	return true;
-}
-
-void App::Run() {
-	while (ProcessMessages()) {
-		Update();
-		Render();
-	}
 }
 
 void App::Update() {
@@ -66,13 +23,13 @@ void App::Update() {
 }
 
 void App::Render() const {
-	SDL_RenderClear(renderer);
+	SDL_RenderClear(GetRenderer());
 
 	if (!images.empty() && images[0].texture) {
-		SDL_RenderCopy(renderer, images[0].texture, nullptr, nullptr);
+		SDL_RenderCopy(GetRenderer(), images[0].texture, nullptr, nullptr);
 	}
 
-	SDL_RenderPresent(renderer);
+	SDL_RenderPresent(GetRenderer());
 }
 
 void App::CheckImageFinishedLoading() {
@@ -80,7 +37,7 @@ void App::CheckImageFinishedLoading() {
 		auto& image = images[i];
 		if (!image.future.valid())
 			continue;
-		
+
 		if (image.future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 			continue;
 
@@ -89,12 +46,12 @@ void App::CheckImageFinishedLoading() {
 			images.erase(images.begin() + i);
 			std::string msg = "Cannot load " + img.Path()
 				+ ".\nReason: " + img.Error() + ".";
-			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg.c_str(), window);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg.c_str(), GetWindow());
 			continue;
 		}
 
 		SDL_Texture* tex = SDL_CreateTexture(
-			renderer,
+			GetRenderer(),
 			SDL_PIXELFORMAT_RGBA32,
 			SDL_TEXTUREACCESS_STATIC,
 			img.GetWidth(),
