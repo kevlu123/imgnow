@@ -3,7 +3,6 @@
 #include "SDL.h"
 #include <vector>
 #include <future>
-#include <optional>
 
 struct SDLException : std::exception {
 	const char* what() const noexcept override;
@@ -11,7 +10,7 @@ struct SDLException : std::exception {
 
 struct ImageEntity {
 	std::future<Image> future;
-	std::optional<Image> image;
+	Image image;
 	SDL_Texture* texture;
 };
 

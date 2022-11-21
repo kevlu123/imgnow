@@ -4,6 +4,9 @@
 #define STBI_FAILURE_USERMSG
 #include "stb_image.h"
 
+Image::Image() {
+}
+
 Image::Image(const char* path) : path(path) {
 	int channels;
 	if (uint8_t* data = stbi_load(path, &width, &height, &channels, 4)) {

@@ -6,6 +6,7 @@
 
 struct Image {
 	~Image();
+	Image();
 	Image(const char* path);
 	Image(const Image&) = delete;
 	Image(Image&&) noexcept;
