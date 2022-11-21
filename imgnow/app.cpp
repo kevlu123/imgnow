@@ -164,7 +164,9 @@ void App::UpdateSidebar() {
 				SDL_RenderDrawRect(GetRenderer(), &rc);
 				hoverImageIndex = i;
 				if (GetMousePressed(SDL_BUTTON_LEFT)) {
+					// Selected a different image
 					activeImageIndex = i;
+					SDL_SetWindowTitle(GetWindow(), image.image.Path().c_str());
 				}
 			}
 		}
