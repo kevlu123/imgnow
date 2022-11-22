@@ -35,126 +35,133 @@ void App::Update() {
 	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
 	SDL_RenderClear(GetRenderer());
 
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
+		grid = !grid;
+	}
+
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_T)) {
+		ImageEntity* image = nullptr;
+		if (TryGetVisibleImage(&image)) {
+			ResetTransform(*image);
+		}
+	}
+
 	UpdateActiveImage();
 	UpdateSidebar();
+	DrawGrid();
 
 	SDL_RenderPresent(GetRenderer());
 }
 
 void App::UpdateActiveImage() {
+	ImageEntity* image = nullptr;
+	if (!TryGetVisibleImage(&image))
+		return;
+
+	auto& display = image->display;
+
 	auto [cw, ch] = GetClientSize();
 	auto [mx, my] = GetMousePosition();
 	auto [_, sy] = GetScrollDelta();
 	sy *= GetDeltaTime() * 5;
 
-	if (!images.empty()) {
-		auto& image = images[activeImageIndex];
-		auto& display = image.display;
-		if (image.image.Valid()) {
-			// Zoom
-			if (sy && !MouseOverSidebar()) {
-				float& oldScale = display.scale;
-				float newScale = oldScale + sy * oldScale;
-				display.x = (display.x - mx) / oldScale * newScale + mx;
-				display.y = (display.y - my) / oldScale * newScale + my;
-				oldScale = newScale;
-			}
+	// Zoom
+	if (sy && !MouseOverSidebar()) {
+		float& oldScale = display.scale;
+		float newScale = oldScale + sy * oldScale;
+		display.x = (display.x - mx) / oldScale * newScale + mx;
+		display.y = (display.y - my) / oldScale * newScale + my;
+		oldScale = newScale;
+	}
 
-			// Begin drag
-			else if ((GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) && !MouseOverSidebar()) {
-				dragLocation = { mx, my };
-			}
+	// Begin drag
+	else if ((GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) && !MouseOverSidebar()) {
+		dragLocation = { mx, my };
+	}
 
-			// Continue drag
-			else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
-				if (dragLocation) {
-					display.x += mx - dragLocation.value().x;
-					display.y += my - dragLocation.value().y;
-					dragLocation.value().x = mx;
-					dragLocation.value().y = my;
-				}
-			}
-
-			// End drag
-			else {
-				dragLocation = std::nullopt;
-			}
-
-			// Flipping:
-			// Since flipping is applied before rotation for SDL_RenderCopyEx,
-			// we need to take into account the current rotation to toggle the correct flag.
-			bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 0
-				|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 1;
-			bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 1
-				|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 0;
-			if (flipH) {
-				display.flipHorizontal = !display.flipHorizontal;
-			}
-			if (flipV) {
-				display.flipVertical = !display.flipVertical;
-			}
-
-			// Rotate anti-clockwise
-			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
-				display.rotation--;
-				if (display.rotation < 0) {
-					display.rotation = 3;
-				}
-			}
-
-			// Rotate clockwise
-			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E)) {
-				display.rotation = (display.rotation + 1) % 4;
-			}
-
-			// Rotate 180 degrees
-			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
-				display.rotation = (display.rotation + 2) % 4;
-			}
-
-			// Animate rotation smoothly
-			float dist = std::abs(display.animatedRotation - display.rotation);
-			if (dist < 0.001f) {
-				// Close enough, set to a nice clean integer.
-				display.animatedRotation = (float)display.rotation;
-			} else {
-				// Interpolate angle with wrapping
-				if (std::abs(display.animatedRotation - 4 - display.rotation) < dist) {
-					display.animatedRotation -= 4;
-				} else if (std::abs(display.animatedRotation + 4 - display.rotation) < dist) {
-					display.animatedRotation += 4;
-				}
-				display.animatedRotation = std::lerp(display.animatedRotation, (float)display.rotation, 0.2f);
-			}
+	// Continue drag
+	else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
+		if (dragLocation) {
+			display.x += mx - dragLocation.value().x;
+			display.y += my - dragLocation.value().y;
+			dragLocation.value().x = mx;
+			dragLocation.value().y = my;
 		}
 	}
 
-	// Draw active image
-	if (!images.empty()) {
-		const auto& image = images[hoverImageIndex.value_or(activeImageIndex)];
-		if (image.image.Valid()) {
-			SDL_Rect dst{};
-			dst.x = (int)image.display.x;
-			dst.y = (int)image.display.y;
-			dst.w = (int)(image.display.scale * image.image.GetWidth());
-			dst.h = (int)(image.display.scale * image.image.GetHeight());
+	// End drag
+	else {
+		dragLocation = std::nullopt;
+	}
 
-			std::underlying_type_t<SDL_RendererFlip> flip = SDL_RendererFlip::SDL_FLIP_NONE;
-			if (image.display.flipHorizontal)
-				flip |= SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
-			if (image.display.flipVertical)
-				flip |= SDL_RendererFlip::SDL_FLIP_VERTICAL;
+	// Flipping:
+	// Since flipping is applied before rotation for SDL_RenderCopyEx,
+	// we need to take into account the current rotation to toggle the correct flag.
+	bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 0
+		|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 1;
+	bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 1
+		|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 0;
+	if (flipH) {
+		display.flipHorizontal = !display.flipHorizontal;
+	}
+	if (flipV) {
+		display.flipVertical = !display.flipVertical;
+	}
 
-			SDL_RenderCopyEx(
-				GetRenderer(),
-				image.texture,
-				nullptr,
-				&dst,
-				90 * image.display.animatedRotation,
-				nullptr,
-				(SDL_RendererFlip)flip);
+	// Rotate anti-clockwise
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
+		display.rotation--;
+		if (display.rotation < 0) {
+			display.rotation = 3;
 		}
 	}
+
+	// Rotate clockwise
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E)) {
+		display.rotation = (display.rotation + 1) % 4;
+	}
+
+	// Rotate 180 degrees
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
+		display.rotation = (display.rotation + 2) % 4;
+	}
+
+	// Animate rotation smoothly
+	float dist = std::abs(display.animatedRotation - display.rotation);
+	if (dist < 0.001f) {
+		// Close enough, set to a nice clean integer.
+		display.animatedRotation = (float)display.rotation;
+	} else {
+		// Interpolate angle with wrapping
+		if (std::abs(display.animatedRotation - 4 - display.rotation) < dist) {
+			display.animatedRotation -= 4;
+		} else if (std::abs(display.animatedRotation + 4 - display.rotation) < dist) {
+			display.animatedRotation += 4;
+		}
+		display.animatedRotation = std::lerp(display.animatedRotation, (float)display.rotation, 0.2f);
+	}
+
+	// Draw image
+	SDL_Rect dst{};
+	dst.x = (int)display.x;
+	dst.y = (int)display.y;
+	dst.w = (int)(display.scale * image->image.GetWidth());
+	dst.h = (int)(display.scale * image->image.GetHeight());
+
+	std::underlying_type_t<SDL_RendererFlip> flip = SDL_RendererFlip::SDL_FLIP_NONE;
+	if (display.flipHorizontal)
+		flip |= SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
+	if (display.flipVertical)
+		flip |= SDL_RendererFlip::SDL_FLIP_VERTICAL;
+
+	SDL_RenderCopyEx(
+		GetRenderer(),
+		image->texture,
+		nullptr,
+		&dst,
+		90 * display.animatedRotation,
+		nullptr,
+		(SDL_RendererFlip)flip);
 }
 
 void App::UpdateSidebar() {
@@ -279,22 +286,11 @@ void App::CheckImageFinishedLoading() {
 			img.GetWidth() * 4);
 		if (ec)
 			throw SDLException();
-
-		// Set transform
-		auto [cw, ch] = GetClientSize();
-		float windowAspect = (float)cw / ch;
-		float imgAspect = img.GetAspectRatio();
-		if (imgAspect > windowAspect) {
-			image.display.scale = (float)cw / img.GetWidth();
-		} else {
-			image.display.scale = (float)ch / img.GetHeight();
-		}
-		image.display.x = (cw - img.GetWidth() * image.display.scale) / 2;
-		image.display.y = (ch - img.GetHeight() * image.display.scale) / 2;
-
-		// Store image and texture to be accessed later
+		
 		image.image = std::move(img);
 		image.texture = tex;
+
+		ResetTransform(image);
 	}
 }
 
@@ -304,4 +300,43 @@ bool App::SidebarVisible() const {
 
 bool App::MouseOverSidebar() const {
 	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH;
+}
+
+bool App::TryGetVisibleImage(ImageEntity** image) {
+	if (images.empty())
+		return false;
+	auto& im = images[hoverImageIndex.value_or(activeImageIndex)];
+	if (!im.texture)
+		return false;
+	*image = &im;
+	return true;
+}
+
+bool App::TryGetVisibleImage(const ImageEntity** image) const {
+	if (images.empty())
+		return false;
+	auto& im = images[hoverImageIndex.value_or(activeImageIndex)];
+	if (!im.texture)
+		return false;
+	*image = &im;
+	return true;
+}
+
+void App::ResetTransform(ImageEntity& image) const {
+	auto [cw, ch] = GetClientSize();
+	float windowAspect = (float)cw / ch;
+	float imgAspect = image.image.GetAspectRatio();
+	if (imgAspect > windowAspect) {
+		image.display.scale = (float)cw / image.image.GetWidth();
+	} else {
+		image.display.scale = (float)ch / image.image.GetHeight();
+	}
+	image.display.x = (cw - image.image.GetWidth() * image.display.scale) / 2;
+	image.display.y = (ch - image.image.GetHeight() * image.display.scale) / 2;
+}
+
+void App::DrawGrid() const {
+	const ImageEntity* image = nullptr;
+	if (!TryGetVisibleImage(&image))
+		return;
 }

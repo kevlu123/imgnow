@@ -24,12 +24,17 @@ struct App : Window {
 private:
 	void UpdateActiveImage();
 	void UpdateSidebar();
+	void DrawGrid() const;
 	void CheckImageFinishedLoading();
 	bool SidebarVisible() const;
 	bool MouseOverSidebar() const;
+	bool TryGetVisibleImage(ImageEntity** image);
+	bool TryGetVisibleImage(const ImageEntity** image) const;
+	void ResetTransform(ImageEntity& image) const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;
 	std::optional<SDL_Point> dragLocation;
 	float sidebarScroll = 0;
+	bool grid = false;
 };
