@@ -1,9 +1,45 @@
+/*
+ * TODO:
+ * Cap scroll speed.
+ * Fix scrolling randomly inverting.
+ * Scroll sidebar by dragging.
+ * Don't draw grid outside image.
+ * Rectangular selection.
+ * Copy to clipboard.
+ * Show image dimensions.
+ * Show coordinates.
+ * Show rgb value.
+ * Change title when hovering over sidebar image.
+ * React to window resize.
+ * Configuration file.
+ * Add app icon.
+ * Fullscreen mode.
+*/
+
 #include "app.h"
 #include <tuple>
 #include <type_traits>
 	
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
+static const char* HELP_TEXT = R"(
+imgnow
+Copyright (c) 2022 Kevin Lu
+
+==============================
+ Shortcut		Action
+
+ F1		Help
+ 0..9		Switch to Image
+ Q		Rotate Anti-clockwise
+ W		Rotate 180 Degrees
+ E		Rotate Clockwise
+ T		Reset Zoom
+ S		Toggle Sidebar
+ F		Flip Horizontal
+ V		Flip Vertical
+==============================
+)";
 
 App::App(int argc, char** argv) : Window(1280, 720) {
 	// Begin loading images asynchronously
@@ -13,7 +49,7 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 		image.future = std::move(future);
 		images.push_back(std::move(image));
 	}
-	
+
 	if (argc <= 1) {
 		SDL_SetWindowTitle(GetWindow(), "imgnow");
 	} else {
@@ -32,12 +68,16 @@ App::~App() {
 void App::Update() {
 	CheckImageFinishedLoading();
 
-	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
-	SDL_RenderClear(GetRenderer());
-
 	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
 		gridEnabled = !gridEnabled;
 	}
+
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F1)) {
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Help", HELP_TEXT, GetWindow());
+	}
+
+	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
+	SDL_RenderClear(GetRenderer());
 
 	UpdateActiveImage();
 	if (gridEnabled) {
