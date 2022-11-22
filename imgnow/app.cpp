@@ -359,9 +359,17 @@ void App::DrawGrid() const {
 
 	auto [cw, ch] = GetClientSize();
 	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 255);
+	
+	// If the image's width and height have an even/odd mismatch
+	// then the grid will have to be adjusted when rotated 90 degrees
+	bool adjustForRotation = image->display.rotation % 2 == 1
+		&& image->image.GetWidth() % 2 != image->image.GetHeight() % 2;
 
 	std::vector<SDL_FPoint> points;
-	float x = display.x < 0 ? std::fmod(display.x, display.scale) : display.x;
+	float x = std::fmod(display.x, display.scale);
+	if (adjustForRotation) {
+		x -= display.scale / 2;
+	}
 	for (; x < cw; x += 2 * display.scale) {
 		points.push_back({ x, 0 });
 		points.push_back({ x, (float)ch });
@@ -371,7 +379,10 @@ void App::DrawGrid() const {
 	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
 
 	points.clear();
-	float y = display.y < 0 ? std::fmod(display.y, display.scale) : display.y;
+	float y = std::fmod(display.y, display.scale);
+	if (adjustForRotation) {
+		y -= display.scale / 2;
+	}
 	for (; y < ch; y += 2 * display.scale) {
 		points.push_back({ 0, y });
 		points.push_back({ (float)cw, y });
