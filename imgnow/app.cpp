@@ -14,6 +14,9 @@
  * Configuration file.
  * Add app icon.
  * Fullscreen mode.
+ * Open file.
+ * Close file.
+ * Reorder files.
 */
 
 #include "app.h"
@@ -75,11 +78,18 @@ void App::Update() {
 	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F1)) {
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Help", HELP_TEXT, GetWindow());
 	}
-
+	
+	for (size_t i = 0; i < 10; i++) {
+		if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
+			activeImageIndex = i;
+		}
+	}
+	
 	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
 	SDL_RenderClear(GetRenderer());
 
 	UpdateActiveImage();
+	
 	if (gridEnabled) {
 		DrawGrid();
 	}
@@ -252,32 +262,30 @@ void App::UpdateSidebar() {
 			SDL_RenderFillRect(GetRenderer(), &rc);
 		}
 
+		// Highlight if cursor is over icon
+		SDL_Point mp{};
+		std::tie(mp.x, mp.y) = GetMousePosition();
+
+		SDL_Rect hitbox{};
+		hitbox.x = sbRc.x;
+		hitbox.y = (int)screenY + SIDEBAR_BORDER / 2;
+		hitbox.w = sbRc.w;
+		hitbox.h = rc.h + SIDEBAR_BORDER;
+		if (SDL_PointInRect(&mp, &hitbox)) {
+			SDL_SetRenderDrawColor(GetRenderer(), 150, 150, 150, 255);
+			SDL_RenderDrawRect(GetRenderer(), &rc);
+			hoverImageIndex = i;
+			if (GetMousePressed(SDL_BUTTON_LEFT)) {
+				// Selected a different image
+				activeImageIndex = i;
+				SDL_SetWindowTitle(GetWindow(), image.image.Path().c_str());
+			}
+		}
+
 		// Highlight if image is active
 		if (activeImageIndex == i) {
 			SDL_SetRenderDrawColor(GetRenderer(), 255, 255, 255, 255);
 			SDL_RenderDrawRect(GetRenderer(), &rc);
-		}
-
-		// Highlight if cursor is over icon
-		else {
-			SDL_Point mp{};
-			std::tie(mp.x, mp.y) = GetMousePosition();
-
-			SDL_Rect hitbox{};
-			hitbox.x = sbRc.x;
-			hitbox.y = (int)screenY + SIDEBAR_BORDER / 2;
-			hitbox.w = sbRc.w;
-			hitbox.h = rc.h + SIDEBAR_BORDER;
-			if (SDL_PointInRect(&mp, &hitbox)) {
-				SDL_SetRenderDrawColor(GetRenderer(), 150, 150, 150, 255);
-				SDL_RenderDrawRect(GetRenderer(), &rc);
-				hoverImageIndex = i;
-				if (GetMousePressed(SDL_BUTTON_LEFT)) {
-					// Selected a different image
-					activeImageIndex = i;
-					SDL_SetWindowTitle(GetWindow(), image.image.Path().c_str());
-				}
-			}
 		}
 
 		// Don't increment y on the last iteration because
