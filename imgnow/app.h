@@ -14,7 +14,7 @@ struct ImageEntity {
 		bool flipVertical = false;
 		int rotation = 0; // In 90 degree anti-clockwise units
 		float animatedRotation = 0;
-	} transform;
+	} display;
 };
 
 struct App : Window {

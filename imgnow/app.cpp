@@ -49,14 +49,14 @@ void App::UpdateActiveImage() {
 
 	if (!images.empty()) {
 		auto& image = images[activeImageIndex];
-		auto& transform = image.transform;
+		auto& display = image.display;
 		if (image.image.Valid()) {
 			// Zoom
 			if (sy && !MouseOverSidebar()) {
-				float& oldScale = transform.scale;
+				float& oldScale = display.scale;
 				float newScale = oldScale + sy * oldScale;
-				transform.x = (transform.x - mx) / oldScale * newScale + mx;
-				transform.y = (transform.y - my) / oldScale * newScale + my;
+				display.x = (display.x - mx) / oldScale * newScale + mx;
+				display.y = (display.y - my) / oldScale * newScale + my;
 				oldScale = newScale;
 			}
 
@@ -68,8 +68,8 @@ void App::UpdateActiveImage() {
 			// Continue drag
 			else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
 				if (dragLocation) {
-					transform.x += mx - dragLocation.value().x;
-					transform.y += my - dragLocation.value().y;
+					display.x += mx - dragLocation.value().x;
+					display.y += my - dragLocation.value().y;
 					dragLocation.value().x = mx;
 					dragLocation.value().y = my;
 				}
@@ -83,48 +83,48 @@ void App::UpdateActiveImage() {
 			// Flipping:
 			// Since flipping is applied before rotation for SDL_RenderCopyEx,
 			// we need to take into account the current rotation to toggle the correct flag.
-			bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && transform.rotation % 2 == 0
-				|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && transform.rotation % 2 == 1;
-			bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && transform.rotation % 2 == 1
-				|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && transform.rotation % 2 == 0;
+			bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 0
+				|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 1;
+			bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 1
+				|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 0;
 			if (flipH) {
-				transform.flipHorizontal = !transform.flipHorizontal;
+				display.flipHorizontal = !display.flipHorizontal;
 			}
 			if (flipV) {
-				transform.flipVertical = !transform.flipVertical;
+				display.flipVertical = !display.flipVertical;
 			}
 
 			// Rotate anti-clockwise
 			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
-				transform.rotation--;
-				if (transform.rotation < 0) {
-					transform.rotation = 3;
+				display.rotation--;
+				if (display.rotation < 0) {
+					display.rotation = 3;
 				}
 			}
 
 			// Rotate clockwise
 			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E)) {
-				transform.rotation = (transform.rotation + 1) % 4;
+				display.rotation = (display.rotation + 1) % 4;
 			}
 
 			// Rotate 180 degrees
 			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
-				transform.rotation = (transform.rotation + 2) % 4;
+				display.rotation = (display.rotation + 2) % 4;
 			}
 
 			// Animate rotation smoothly
-			float dist = std::abs(transform.animatedRotation - transform.rotation);
+			float dist = std::abs(display.animatedRotation - display.rotation);
 			if (dist < 0.001f) {
 				// Close enough, set to a nice clean integer.
-				transform.animatedRotation = (float)transform.rotation;
+				display.animatedRotation = (float)display.rotation;
 			} else {
 				// Interpolate angle with wrapping
-				if (std::abs(transform.animatedRotation - 4 - transform.rotation) < dist) {
-					transform.animatedRotation -= 4;
-				} else if (std::abs(transform.animatedRotation + 4 - transform.rotation) < dist) {
-					transform.animatedRotation += 4;
+				if (std::abs(display.animatedRotation - 4 - display.rotation) < dist) {
+					display.animatedRotation -= 4;
+				} else if (std::abs(display.animatedRotation + 4 - display.rotation) < dist) {
+					display.animatedRotation += 4;
 				}
-				transform.animatedRotation = std::lerp(transform.animatedRotation, (float)transform.rotation, 0.2f);
+				display.animatedRotation = std::lerp(display.animatedRotation, (float)display.rotation, 0.2f);
 			}
 		}
 	}
@@ -134,15 +134,15 @@ void App::UpdateActiveImage() {
 		const auto& image = images[hoverImageIndex.value_or(activeImageIndex)];
 		if (image.image.Valid()) {
 			SDL_Rect dst{};
-			dst.x = (int)image.transform.x;
-			dst.y = (int)image.transform.y;
-			dst.w = (int)(image.transform.scale * image.image.GetWidth());
-			dst.h = (int)(image.transform.scale * image.image.GetHeight());
+			dst.x = (int)image.display.x;
+			dst.y = (int)image.display.y;
+			dst.w = (int)(image.display.scale * image.image.GetWidth());
+			dst.h = (int)(image.display.scale * image.image.GetHeight());
 
 			std::underlying_type_t<SDL_RendererFlip> flip = SDL_RendererFlip::SDL_FLIP_NONE;
-			if (image.transform.flipHorizontal)
+			if (image.display.flipHorizontal)
 				flip |= SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
-			if (image.transform.flipVertical)
+			if (image.display.flipVertical)
 				flip |= SDL_RendererFlip::SDL_FLIP_VERTICAL;
 
 			SDL_RenderCopyEx(
@@ -150,7 +150,7 @@ void App::UpdateActiveImage() {
 				image.texture,
 				nullptr,
 				&dst,
-				90 * image.transform.animatedRotation,
+				90 * image.display.animatedRotation,
 				nullptr,
 				(SDL_RendererFlip)flip);
 		}
@@ -285,12 +285,12 @@ void App::CheckImageFinishedLoading() {
 		float windowAspect = (float)cw / ch;
 		float imgAspect = img.GetAspectRatio();
 		if (imgAspect > windowAspect) {
-			image.transform.scale = (float)cw / img.GetWidth();
+			image.display.scale = (float)cw / img.GetWidth();
 		} else {
-			image.transform.scale = (float)ch / img.GetHeight();
+			image.display.scale = (float)ch / img.GetHeight();
 		}
-		image.transform.x = (cw - img.GetWidth() * image.transform.scale) / 2;
-		image.transform.y = (ch - img.GetHeight() * image.transform.scale) / 2;
+		image.display.x = (cw - img.GetWidth() * image.display.scale) / 2;
+		image.display.y = (ch - img.GetHeight() * image.display.scale) / 2;
 
 		// Store image and texture to be accessed later
 		image.image = std::move(img);
