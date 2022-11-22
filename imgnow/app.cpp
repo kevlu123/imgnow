@@ -47,8 +47,11 @@ void App::Update() {
 	}
 
 	UpdateActiveImage();
+	if (grid) {
+		DrawGrid();
+	}
+	
 	UpdateSidebar();
-	DrawGrid();
 
 	SDL_RenderPresent(GetRenderer());
 }
@@ -339,4 +342,31 @@ void App::DrawGrid() const {
 	const ImageEntity* image = nullptr;
 	if (!TryGetVisibleImage(&image))
 		return;
+
+	const auto& display = image->display;
+	if (display.scale < 2)
+		return;
+
+	auto [cw, ch] = GetClientSize();
+	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 255);
+
+	std::vector<SDL_FPoint> points;
+	float x = display.x < 0 ? std::fmod(display.x, display.scale) : display.x;
+	for (; x < cw; x += 2 * display.scale) {
+		points.push_back({ x, 0 });
+		points.push_back({ x, (float)ch });
+		points.push_back({ x + display.scale, (float)ch });
+		points.push_back({ x + display.scale, 0 });
+	}
+	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
+
+	points.clear();
+	float y = display.y < 0 ? std::fmod(display.y, display.scale) : display.y;
+	for (; y < ch; y += 2 * display.scale) {
+		points.push_back({ 0, y });
+		points.push_back({ (float)cw, y });
+		points.push_back({ (float)cw, y + display.scale });
+		points.push_back({ 0, y + display.scale });
+	}
+	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
 }
