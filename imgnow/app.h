@@ -13,6 +13,7 @@ struct ImageEntity {
 		bool flipHorizontal = false;
 		bool flipVertical = false;
 		int rotation = 0; // In 90 degree anti-clockwise units
+		float animatedRotation = 0;
 	} transform;
 };
 
