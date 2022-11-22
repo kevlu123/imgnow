@@ -50,7 +50,7 @@ void App::UpdateActiveImage() {
 		auto& image = images[activeImageIndex];
 		if (image.image.Valid()) {
 			// Zoom
-			if (sy) {
+			if (sy && !MouseOverSidebar()) {
 				float& oldScale = image.transform.scale;
 				float newScale = oldScale + sy * oldScale;
 				image.transform.x = (image.transform.x - mx) / oldScale * newScale + mx;
@@ -59,10 +59,8 @@ void App::UpdateActiveImage() {
 			}
 
 			// Begin drag
-			else if (GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) {
-				if (mx < cw - SIDEBAR_WIDTH) {
-					dragLocation = { mx, my };
-				}
+			else if ((GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) && !MouseOverSidebar()) {
+				dragLocation = { mx, my };
 			}
 
 			// Continue drag
@@ -115,6 +113,7 @@ void App::UpdateSidebar() {
 		return;
 
 	auto [cw, ch] = GetClientSize();
+	auto [_, sy] = GetScrollDelta();
 
 	// Draw background
 	SDL_Rect sbRc{};
@@ -126,14 +125,15 @@ void App::UpdateSidebar() {
 
 	// Mini icons
 	hoverImageIndex = std::nullopt;
-	float y = sidebarScroll;
+	float y = 0;
 	for (size_t i = 0; i < images.size(); i++) {
 		const auto& image = images[i];
 
+		float screenY = y - sidebarScroll;
 		SDL_Rect rc{};
 		rc.w = SIDEBAR_WIDTH - 2 * SIDEBAR_BORDER;
 		rc.x = sbRc.x + SIDEBAR_BORDER;
-		rc.y = (int)y + SIDEBAR_BORDER;
+		rc.y = (int)screenY + SIDEBAR_BORDER;
 		rc.h = (int)(rc.w / image.image.GetAspectRatio());
 		if (image.texture) {
 			SDL_RenderCopy(GetRenderer(), image.texture, nullptr, &rc);
@@ -156,7 +156,7 @@ void App::UpdateSidebar() {
 
 			SDL_Rect hitbox{};
 			hitbox.x = sbRc.x;
-			hitbox.y = (int)y + SIDEBAR_BORDER / 2;
+			hitbox.y = (int)screenY + SIDEBAR_BORDER / 2;
 			hitbox.w = sbRc.w;
 			hitbox.h = rc.h + SIDEBAR_BORDER;
 			if (SDL_PointInRect(&mp, &hitbox)) {
@@ -171,7 +171,21 @@ void App::UpdateSidebar() {
 			}
 		}
 
-		y += SIDEBAR_BORDER + rc.h;
+		// Don't increment y on the last iteration because
+		// this value of y is used as a bound for scrolling.
+		if (i < images.size() - 1) {
+			y += SIDEBAR_BORDER + rc.h;
+		}
+	}
+
+	// Scroll sidebar
+	if (MouseOverSidebar()) {
+		sidebarScroll -= sy * GetDeltaTime() * 800;
+		if (sidebarScroll > y) {
+			sidebarScroll = y;
+		} else if (sidebarScroll < 0) {
+			sidebarScroll = 0;
+		}
 	}
 }
 
@@ -237,4 +251,8 @@ void App::CheckImageFinishedLoading() {
 
 bool App::SidebarVisible() const {
 	return images.size() > 1;
+}
+
+bool App::MouseOverSidebar() const {
+	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH;
 }

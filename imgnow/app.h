@@ -25,6 +25,7 @@ private:
 	void UpdateSidebar();
 	void CheckImageFinishedLoading();
 	bool SidebarVisible() const;
+	bool MouseOverSidebar() const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;
