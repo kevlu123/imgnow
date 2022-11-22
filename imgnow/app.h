@@ -36,5 +36,7 @@ private:
 	std::optional<size_t> hoverImageIndex = 0;
 	std::optional<SDL_Point> dragLocation;
 	float sidebarScroll = 0;
-	bool grid = false;
+	bool sidebarEnabled = true;
+	float sidebarAnimatedPosition = 1; // Between 0 and 1
+	bool gridEnabled = false;
 };

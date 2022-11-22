@@ -36,18 +36,11 @@ void App::Update() {
 	SDL_RenderClear(GetRenderer());
 
 	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
-		grid = !grid;
-	}
-
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_T)) {
-		ImageEntity* image = nullptr;
-		if (TryGetVisibleImage(&image)) {
-			ResetTransform(*image);
-		}
+		gridEnabled = !gridEnabled;
 	}
 
 	UpdateActiveImage();
-	if (grid) {
+	if (gridEnabled) {
 		DrawGrid();
 	}
 	
@@ -95,6 +88,10 @@ void App::UpdateActiveImage() {
 	// End drag
 	else {
 		dragLocation = std::nullopt;
+	}
+
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_T)) {
+		ResetTransform(*image);
 	}
 
 	// Flipping:
@@ -174,9 +171,22 @@ void App::UpdateSidebar() {
 	auto [cw, ch] = GetClientSize();
 	auto [_, sy] = GetScrollDelta();
 
+	// Toggle sidebar
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_S)) {
+		sidebarEnabled = !sidebarEnabled;
+	}
+
+	// Animate sidebar
+	float animationTargetValue = (float)sidebarEnabled;
+	if (std::abs(animationTargetValue - sidebarAnimatedPosition) < 0.001f) {
+		sidebarAnimatedPosition = animationTargetValue;
+	} else {
+		sidebarAnimatedPosition = std::lerp(sidebarAnimatedPosition, animationTargetValue, 0.2f);
+	}
+
 	// Draw background
 	SDL_Rect sbRc{};
-	sbRc.x = cw - SIDEBAR_WIDTH;
+	sbRc.x = cw - (int)(SIDEBAR_WIDTH * sidebarAnimatedPosition);
 	sbRc.w = SIDEBAR_WIDTH;
 	sbRc.h = ch;
 	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 200);

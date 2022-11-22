@@ -67,6 +67,15 @@ bool Window::ProcessMessages() {
 			mousePosition.first = ev.motion.x;
 			mousePosition.second = ev.motion.y;
 			break;
+		case SDL_WINDOWEVENT:
+			switch (ev.window.event) {
+			case SDL_WINDOWEVENT_LEAVE:
+				// Stop tracking mouse position when it leaves the window
+				mousePosition.first = -1;
+				mousePosition.second = -1;
+				break;
+			}
+			break;
 		}
 	}
 	return true;
