@@ -13,7 +13,6 @@
  * React to window resize.
  * Configuration file.
  * Add app icon.
- * Fullscreen mode.
  * Open file.
  * Close file.
  * Reorder files.
@@ -83,6 +82,11 @@ void App::Update() {
 		if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
 			activeImageIndex = i;
 		}
+	}
+	
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F11)) {
+		fullscreen = !fullscreen;
+		SDL_SetWindowFullscreen(GetWindow(), fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP: 0);
 	}
 	
 	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);

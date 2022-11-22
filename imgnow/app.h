@@ -39,4 +39,5 @@ private:
 	bool sidebarEnabled = true;
 	float sidebarAnimatedPosition = 1; // Between 0 and 1
 	bool gridEnabled = false;
+	bool fullscreen = false;
 };
