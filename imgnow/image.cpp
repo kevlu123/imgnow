@@ -3,42 +3,16 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_FAILURE_USERMSG
 #include "stb_image.h"
+#include <filesystem>
 
-Image::Image() {
-}
-
-Image::Image(const char* path) : path(path) {
-	int channels;
+Image::Image(const char* path) {
 	if (uint8_t* data = stbi_load(path, &width, &height, &channels, 4)) {
-		this->data = std::span<uint8_t>(data, width * height * 4);
+		this->data = std::shared_ptr<uint8_t>(data, stbi_image_free);
+		this->path = std::filesystem::absolute(path).string();
 	} else {
 		error = stbi_failure_reason();
+		this->path = path;
 	}
-}
-
-Image::~Image() {
-	if (data.data()) {
-		stbi_image_free(data.data());
-	}
-}
-
-Image::Image(Image&& other) noexcept {
-	width = other.width;
-	height = other.height;
-	data = other.data;
-	path = std::move(other.path);
-	error = std::move(other.error);
-	other.data = {};
-}
-
-Image& Image::operator=(Image&& other) noexcept {
-	width = other.width;
-	height = other.height;
-	data = other.data;
-	path = std::move(other.path);
-	error = std::move(other.error);
-	other.data = {};
-	return *this;
 }
 
 int Image::GetWidth() const {
@@ -57,12 +31,21 @@ float Image::GetAspectRatio() const {
 	}
 }
 
-std::span<const uint8_t> Image::GetPixels() const {
-	return data;
+int Image::GetChannels() const {
+	return channels;
+}
+
+uint32_t Image::GetPixel(int x, int y) const {
+	const uint8_t* pixel = data.get() + (y * width + x) * 4;
+	return (pixel[0] << 24) | (pixel[1] << 16) | (pixel[2] << 8) | pixel[3];
+}
+
+const uint8_t* Image::GetPixels() const {
+	return data.get();
 }
 
 bool Image::Valid() const {
-	return data.data() != nullptr;
+	return (bool)data;
 }
 
 const std::string& Image::Path() const {

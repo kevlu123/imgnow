@@ -6,16 +6,13 @@
  * Don't draw grid outside image.
  * Rectangular selection.
  * Copy to clipboard.
- * Show image dimensions.
- * Show coordinates.
- * Show rgb value.
- * Change title when hovering over sidebar image.
  * React to window resize.
  * Configuration file.
  * Add app icon.
  * Open file.
  * Close file.
  * Reorder files.
+ * Add linux build script.
 */
 
 #include "app.h"
@@ -50,12 +47,6 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 		ImageEntity image{};
 		image.future = std::move(future);
 		images.push_back(std::move(image));
-	}
-
-	if (argc <= 1) {
-		SDL_SetWindowTitle(GetWindow(), "imgnow");
-	} else {
-		SDL_SetWindowTitle(GetWindow(), argv[1]);
 	}
 }
 
@@ -100,7 +91,42 @@ void App::Update() {
 	
 	UpdateSidebar();
 
+	UpdateStatus();
+
 	SDL_RenderPresent(GetRenderer());
+}
+
+void App::UpdateStatus() const {
+	const ImageEntity* image = nullptr;
+	if (!TryGetVisibleImage(&image)) {
+		SDL_SetWindowTitle(GetWindow(), "imgnow");
+		return;
+	}
+
+	auto [mx, my] = GetMousePosition();
+	SDL_Point offset{};
+	offset.x = (int)std::floor((mx - image->display.x) / image->display.scale);
+	offset.y = (int)std::floor((my - image->display.y) / image->display.scale);
+	
+	SDL_Rect rc{};
+	rc.w = image->image.GetWidth();
+	rc.h = image->image.GetHeight();
+	uint32_t colour = SDL_PointInRect(&offset, &rc) ? image->image.GetPixel(offset.x, offset.y) : 0x00000000;
+	char hexColour[9]{};
+	for (int i = 0; i < 8; i++) {
+		hexColour[i] = "0123456789ABCDEF"[colour >> (28 - i * 4) & 0xF];
+	}
+
+	static const std::string SEP = "  |  ";
+	std::string text = "imgnow" + SEP
+		+ image->image.Path() + SEP
+		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
+		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
+		+ "RGBA: " + hexColour + SEP
+		+ "Channels: " + std::to_string(image->image.GetChannels()) + SEP
+		+ "Zoom: " + std::to_string((int)(image->display.scale * 100)) + "%";
+
+	SDL_SetWindowTitle(GetWindow(), text.c_str());
 }
 
 void App::UpdateActiveImage() {
@@ -267,22 +293,23 @@ void App::UpdateSidebar() {
 		}
 
 		// Highlight if cursor is over icon
-		SDL_Point mp{};
-		std::tie(mp.x, mp.y) = GetMousePosition();
+		if (MouseOverSidebar()) {
+			SDL_Point mp{};
+			std::tie(mp.x, mp.y) = GetMousePosition();
 
-		SDL_Rect hitbox{};
-		hitbox.x = sbRc.x;
-		hitbox.y = (int)screenY + SIDEBAR_BORDER / 2;
-		hitbox.w = sbRc.w;
-		hitbox.h = rc.h + SIDEBAR_BORDER;
-		if (SDL_PointInRect(&mp, &hitbox)) {
-			SDL_SetRenderDrawColor(GetRenderer(), 150, 150, 150, 255);
-			SDL_RenderDrawRect(GetRenderer(), &rc);
-			hoverImageIndex = i;
-			if (GetMousePressed(SDL_BUTTON_LEFT)) {
-				// Selected a different image
-				activeImageIndex = i;
-				SDL_SetWindowTitle(GetWindow(), image.image.Path().c_str());
+			SDL_Rect hitbox{};
+			hitbox.x = sbRc.x;
+			hitbox.y = (int)screenY + SIDEBAR_BORDER / 2;
+			hitbox.w = sbRc.w;
+			hitbox.h = rc.h + SIDEBAR_BORDER;
+			if (SDL_PointInRect(&mp, &hitbox)) {
+				SDL_SetRenderDrawColor(GetRenderer(), 150, 150, 150, 255);
+				SDL_RenderDrawRect(GetRenderer(), &rc);
+				hoverImageIndex = i;
+				if (GetMousePressed(SDL_BUTTON_LEFT)) {
+					// Selected a different image
+					activeImageIndex = i;
+				}
 			}
 		}
 
@@ -347,7 +374,7 @@ void App::CheckImageFinishedLoading() {
 		ec = SDL_UpdateTexture(
 			tex,
 			nullptr,
-			img.GetPixels().data(),
+			img.GetPixels(),
 			img.GetWidth() * 4);
 		if (ec)
 			throw SDLException();
@@ -364,7 +391,8 @@ bool App::SidebarVisible() const {
 }
 
 bool App::MouseOverSidebar() const {
-	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH;
+	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH
+		&& MouseInWindow();
 }
 
 bool App::TryGetVisibleImage(ImageEntity** image) {

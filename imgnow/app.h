@@ -25,6 +25,7 @@ private:
 	void UpdateActiveImage();
 	void UpdateSidebar();
 	void DrawGrid() const;
+	void UpdateStatus() const;
 	void CheckImageFinishedLoading();
 	bool SidebarVisible() const;
 	bool MouseOverSidebar() const;

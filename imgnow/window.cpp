@@ -69,10 +69,11 @@ bool Window::ProcessMessages() {
 			break;
 		case SDL_WINDOWEVENT:
 			switch (ev.window.event) {
+			case SDL_WINDOWEVENT_ENTER:
+				mouseInWindow = true;
+				break;
 			case SDL_WINDOWEVENT_LEAVE:
-				// Stop tracking mouse position when it leaves the window
-				mousePosition.first = -1;
-				mousePosition.second = -1;
+				mouseInWindow = false;
 				break;
 			}
 			break;
@@ -132,6 +133,10 @@ std::pair<float, float> Window::GetScrollDelta() const {
 
 std::pair<int, int> Window::GetMousePosition() const {
 	return mousePosition;
+}
+
+bool Window::MouseInWindow() const {
+	return mouseInWindow;
 }
 
 std::pair<int, int> Window::GetClientSize() const {
