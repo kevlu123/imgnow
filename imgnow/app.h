@@ -32,6 +32,7 @@ private:
 	bool TryGetVisibleImage(ImageEntity** image);
 	bool TryGetVisibleImage(const ImageEntity** image) const;
 	void ResetTransform(ImageEntity& image) const;
+	SDL_Rect GetImageRect() const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;

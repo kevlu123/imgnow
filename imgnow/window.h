@@ -1,7 +1,6 @@
 #pragma once
 #include "image.h"
 #include "SDL.h"
-#include <Windows.h>
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -32,7 +31,6 @@ struct Window {
 	std::pair<int, int> GetClientSize() const;
 	SDL_Window* GetWindow() const;
 	SDL_Renderer* GetRenderer() const;
-	HWND GetHwnd() const;
 	float GetDeltaTime() const;
 private:
 	bool ProcessMessages();
@@ -40,7 +38,6 @@ private:
 
 	SDL_Window* window = nullptr;
 	SDL_Renderer* renderer = nullptr;
-	HWND hwnd = nullptr;
 	bool quit = false;
 	std::unordered_map<SDL_Scancode, KeyState> keyStates;
 	std::array<KeyState, 5> mouseStates{};

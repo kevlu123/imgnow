@@ -26,12 +26,6 @@ Window::Window(int width, int height) {
 		throw SDLException();
 	
 	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-	// Get native window handle
-	SDL_SysWMinfo wmInfo{};
-	SDL_VERSION(&wmInfo.version);
-	SDL_GetWindowWMInfo(window, &wmInfo);
-	hwnd = wmInfo.info.win.window;
 }
 
 Window::~Window() {
@@ -151,10 +145,6 @@ SDL_Window* Window::GetWindow() const {
 
 SDL_Renderer* Window::GetRenderer() const {
 	return renderer;
-}
-
-HWND Window::GetHwnd() const {
-	return hwnd;
 }
 
 float Window::GetDeltaTime() const {

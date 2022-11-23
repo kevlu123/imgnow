@@ -3,7 +3,6 @@
  * Cap scroll speed.
  * Fix scrolling randomly inverting.
  * Scroll sidebar by dragging.
- * Don't draw grid outside image.
  * Rectangular selection.
  * Copy to clipboard.
  * React to window resize.
@@ -104,14 +103,13 @@ void App::UpdateStatus() const {
 	}
 
 	auto [mx, my] = GetMousePosition();
-	SDL_Point offset{};
-	offset.x = (int)std::floor((mx - image->display.x) / image->display.scale);
-	offset.y = (int)std::floor((my - image->display.y) / image->display.scale);
+	SDL_Rect rect = GetImageRect();
 	
-	SDL_Rect rc{};
-	rc.w = image->image.GetWidth();
-	rc.h = image->image.GetHeight();
-	uint32_t colour = SDL_PointInRect(&offset, &rc) ? image->image.GetPixel(offset.x, offset.y) : 0x00000000;
+	SDL_Point offset{};
+	offset.x = (int)std::floor((mx - rect.x) / image->display.scale);
+	offset.y = (int)std::floor((my - rect.y) / image->display.scale);
+	
+	uint32_t colour = SDL_PointInRect(&offset, &rect) ? image->image.GetPixel(offset.x, offset.y) : 0x00000000;
 	char hexColour[9]{};
 	for (int i = 0; i < 8; i++) {
 		hexColour[i] = "0123456789ABCDEF"[colour >> (28 - i * 4) & 0xF];
@@ -222,12 +220,13 @@ void App::UpdateActiveImage() {
 	}
 
 	// Draw image
-	SDL_Rect dst{};
-	dst.x = (int)display.x;
-	dst.y = (int)display.y;
-	dst.w = (int)(display.scale * image->image.GetWidth());
-	dst.h = (int)(display.scale * image->image.GetHeight());
-
+	SDL_Rect dst = {
+		(int)display.x,
+		(int)display.y,
+		(int)(display.scale * image->image.GetWidth()),
+		(int)(display.scale * image->image.GetHeight()),
+	};
+	
 	std::underlying_type_t<SDL_RendererFlip> flip = SDL_RendererFlip::SDL_FLIP_NONE;
 	if (display.flipHorizontal)
 		flip |= SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
@@ -265,10 +264,12 @@ void App::UpdateSidebar() {
 	}
 
 	// Draw background
-	SDL_Rect sbRc{};
-	sbRc.x = cw - (int)(SIDEBAR_WIDTH * sidebarAnimatedPosition);
-	sbRc.w = SIDEBAR_WIDTH;
-	sbRc.h = ch;
+	SDL_Rect sbRc = {
+		cw - (int)(SIDEBAR_WIDTH * sidebarAnimatedPosition),
+		0,
+		SIDEBAR_WIDTH,
+		ch
+	};
 	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 200);
 	SDL_RenderFillRect(GetRenderer(), &sbRc);
 
@@ -297,11 +298,12 @@ void App::UpdateSidebar() {
 			SDL_Point mp{};
 			std::tie(mp.x, mp.y) = GetMousePosition();
 
-			SDL_Rect hitbox{};
-			hitbox.x = sbRc.x;
-			hitbox.y = (int)screenY + SIDEBAR_BORDER / 2;
-			hitbox.w = sbRc.w;
-			hitbox.h = rc.h + SIDEBAR_BORDER;
+			SDL_Rect hitbox = {
+				sbRc.x,
+				(int)screenY + SIDEBAR_BORDER / 2,
+				sbRc.w,
+				rc.h + SIDEBAR_BORDER,
+			};
 			if (SDL_PointInRect(&mp, &hitbox)) {
 				SDL_SetRenderDrawColor(GetRenderer(), 150, 150, 150, 255);
 				SDL_RenderDrawRect(GetRenderer(), &rc);
@@ -428,6 +430,32 @@ void App::ResetTransform(ImageEntity& image) const {
 	image.display.y = (ch - image.image.GetHeight() * image.display.scale) / 2;
 }
 
+SDL_Rect App::GetImageRect() const {
+	const ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+	if (image->display.rotation % 2 == 0) {
+		return {
+			(int)image->display.x,
+			(int)image->display.y,
+			(int)(image->image.GetWidth() * image->display.scale),
+			(int)(image->image.GetHeight() * image->display.scale)
+		};
+	} else {
+		float w = image->image.GetWidth() * image->display.scale;
+		float h = image->image.GetHeight() * image->display.scale;
+		float centreX = image->display.x + w / 2;
+		float centreY = image->display.y + h / 2;
+		float x = image->display.x + w - centreX;
+		float y = image->display.y - centreY;
+		return {
+			(int)(y + centreX),
+			(int)(-x + centreY),
+			(int)h,
+			(int)w
+		};
+	}
+}
+
 void App::DrawGrid() const {
 	const ImageEntity* image = nullptr;
 	if (!TryGetVisibleImage(&image))
@@ -438,36 +466,24 @@ void App::DrawGrid() const {
 		return;
 
 	auto [cw, ch] = GetClientSize();
-	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 255);
+	SDL_Rect rect = GetImageRect();
+	float minX = std::max((float)rect.x, std::fmod((float)rect.x, display.scale));
+	float maxX = (float)std::min(rect.x + rect.w, cw);
+	float minY = std::max((float)rect.y, std::fmod((float)rect.y, display.scale));
+	float maxY = (float)std::min(rect.y + rect.h, ch);
 	
-	// If the image's width and height have an even/odd mismatch
-	// then the grid will have to be adjusted when rotated 90 degrees
-	bool adjustForRotation = image->display.rotation % 2 == 1
-		&& image->image.GetWidth() % 2 != image->image.GetHeight() % 2;
-
 	std::vector<SDL_FPoint> points;
-	float x = std::fmod(display.x, display.scale);
-	if (adjustForRotation) {
-		x -= display.scale / 2;
+	for (float x = minX; x <= maxX + display.scale / 2; x += display.scale) {
+		points.push_back({ x, minY });
+		points.push_back({ x, (float)maxY });
+		points.push_back({ x, minY });
 	}
-	for (; x < cw; x += 2 * display.scale) {
-		points.push_back({ x, 0 });
-		points.push_back({ x, (float)ch });
-		points.push_back({ x + display.scale, (float)ch });
-		points.push_back({ x + display.scale, 0 });
+	for (float y = minY; y <= maxY + display.scale / 2; y += display.scale) {
+		points.push_back({ minX, y });
+		points.push_back({ maxX, y });
+		points.push_back({ minX, y });
 	}
-	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
-
-	points.clear();
-	float y = std::fmod(display.y, display.scale);
-	if (adjustForRotation) {
-		y -= display.scale / 2;
-	}
-	for (; y < ch; y += 2 * display.scale) {
-		points.push_back({ 0, y });
-		points.push_back({ (float)cw, y });
-		points.push_back({ (float)cw, y + display.scale });
-		points.push_back({ 0, y + display.scale });
-	}
+	
+	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 255);
 	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
 }
