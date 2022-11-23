@@ -27,12 +27,14 @@ Copyright (c) 2022 Kevin Lu
 ==============================
  Shortcut		Action
 
+ Ctrl+O		Open File
+ Ctrl+W		Close File
  F1		Help
- 0..9		Switch to Image
+ 0-9		Switch to Image
  Q		Rotate Anti-clockwise
  W		Rotate 180 Degrees
  E		Rotate Clockwise
- T		Reset Zoom
+ Z		Reset Zoom
  S		Toggle Sidebar
  F		Flip Horizontal
  V		Flip Vertical
@@ -168,7 +170,7 @@ void App::UpdateActiveImage() {
 		dragLocation = std::nullopt;
 	}
 
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_T)) {
+	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Z)) {
 		ResetTransform(*image);
 	}
 
