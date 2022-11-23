@@ -15,6 +15,7 @@
 */
 
 #include "app.h"
+#include "tinyfiledialogs.h"
 #include <tuple>
 #include <type_traits>
 	
@@ -33,13 +34,20 @@ Copyright (c) 2022 Kevin Lu
  0-9		Switch to Image
  Q		Rotate Anti-clockwise
  W		Rotate 180 Degrees
- E		Rotate Clockwise
+ E/R		Rotate Clockwise
  Z		Reset Zoom
  S		Toggle Sidebar
  F		Flip Horizontal
  V		Flip Vertical
 ==============================
 )";
+
+// Since std::future blocks when destroyed, we need to keep it
+// alive until the image is loaded. We do this by moving the future into
+// a heap allocated future which is periodically checked for completion.
+// Being heap allocated means that the destructor does not have to
+// be called when the program exits. This leak allows for quick termination.
+static std::vector<std::future<Image>*> discardedFutures;
 
 App::App(int argc, char** argv) : Window(1280, 720) {
 	// Begin loading images asynchronously
@@ -49,6 +57,8 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 		image.future = std::move(future);
 		images.push_back(std::move(image));
 	}
+
+	sidebarEnabled = argc > 2;
 }
 
 App::~App() {
@@ -62,23 +72,34 @@ App::~App() {
 void App::Update() {
 	CheckImageFinishedLoading();
 
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
-		gridEnabled = !gridEnabled;
-	}
+	if (GetCtrlKeyDown()) {
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_O)) {
 
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F1)) {
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Help", HELP_TEXT, GetWindow());
-	}
-	
-	for (size_t i = 0; i < 10; i++) {
-		if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
-			activeImageIndex = i;
+		} else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
+			ImageEntity* image = nullptr;
+			if (TryGetCurrentImage(&image)) {
+				CloseFile(image);
+			}
 		}
-	}
-	
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F11)) {
-		fullscreen = !fullscreen;
-		SDL_SetWindowFullscreen(GetWindow(), fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP: 0);
+	} else {
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
+			gridEnabled = !gridEnabled;
+		}
+
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F1)) {
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Help", HELP_TEXT, GetWindow());
+		}
+
+		for (size_t i = 0; i < 10; i++) {
+			if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
+				activeImageIndex = i;
+			}
+		}
+
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F11)) {
+			fullscreen = !fullscreen;
+			SDL_SetWindowFullscreen(GetWindow(), fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+		}
 	}
 	
 	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
@@ -170,40 +191,42 @@ void App::UpdateActiveImage() {
 		dragLocation = std::nullopt;
 	}
 
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Z)) {
-		ResetTransform(*image);
-	}
-
-	// Flipping:
-	// Since flipping is applied before rotation for SDL_RenderCopyEx,
-	// we need to take into account the current rotation to toggle the correct flag.
-	bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 0
-		|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 1;
-	bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 1
-		|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 0;
-	if (flipH) {
-		display.flipHorizontal = !display.flipHorizontal;
-	}
-	if (flipV) {
-		display.flipVertical = !display.flipVertical;
-	}
-
-	// Rotate anti-clockwise
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
-		display.rotation--;
-		if (display.rotation < 0) {
-			display.rotation = 3;
+	if (!GetCtrlKeyDown()) {
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Z)) {
+			ResetTransform(*image);
 		}
-	}
 
-	// Rotate clockwise
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E)) {
-		display.rotation = (display.rotation + 1) % 4;
-	}
+		// Flipping:
+		// Since flipping is applied before rotation for SDL_RenderCopyEx,
+		// we need to take into account the current rotation to toggle the correct flag.
+		bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 0
+			|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 1;
+		bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 1
+			|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 0;
+		if (flipH) {
+			display.flipHorizontal = !display.flipHorizontal;
+		}
+		if (flipV) {
+			display.flipVertical = !display.flipVertical;
+		}
 
-	// Rotate 180 degrees
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
-		display.rotation = (display.rotation + 2) % 4;
+		// Rotate anti-clockwise
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
+			display.rotation--;
+			if (display.rotation < 0) {
+				display.rotation = 3;
+			}
+		}
+
+		// Rotate clockwise
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E) || GetKeyPressed(SDL_Scancode::SDL_SCANCODE_R)) {
+			display.rotation = (display.rotation + 1) % 4;
+		}
+
+		// Rotate 180 degrees
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
+			display.rotation = (display.rotation + 2) % 4;
+		}
 	}
 
 	// Animate rotation smoothly
@@ -246,14 +269,11 @@ void App::UpdateActiveImage() {
 }
 
 void App::UpdateSidebar() {
-	if (!SidebarVisible())
-		return;
-
 	auto [cw, ch] = GetClientSize();
 	auto [_, sy] = GetScrollDelta();
 
 	// Toggle sidebar
-	if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_S)) {
+	if (!GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_S)) {
 		sidebarEnabled = !sidebarEnabled;
 	}
 
@@ -342,6 +362,16 @@ void App::UpdateSidebar() {
 }
 
 void App::CheckImageFinishedLoading() {
+	// Check if any discarded futures have finished loading
+	for (auto it = discardedFutures.begin(); it != discardedFutures.end(); ++it) {
+		if ((*it)->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+			delete *it;
+			it = discardedFutures.erase(it);
+			if (it == discardedFutures.end())
+				break;
+		}
+	}
+
 	for (size_t i = 0; i < images.size(); i++) {
 		auto& image = images[i];
 		if (!image.future.valid())
@@ -390,33 +420,31 @@ void App::CheckImageFinishedLoading() {
 	}
 }
 
-bool App::SidebarVisible() const {
-	return images.size() > 1;
-}
-
 bool App::MouseOverSidebar() const {
 	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH
 		&& MouseInWindow();
 }
 
-bool App::TryGetVisibleImage(ImageEntity** image) {
+bool App::TryGetCurrentImage(ImageEntity** image) {
 	if (images.empty())
 		return false;
-	auto& im = images[hoverImageIndex.value_or(activeImageIndex)];
-	if (!im.texture)
-		return false;
-	*image = &im;
+	*image = &images[hoverImageIndex.value_or(activeImageIndex)];
 	return true;
 }
 
-bool App::TryGetVisibleImage(const ImageEntity** image) const {
+bool App::TryGetCurrentImage(const ImageEntity** image) const {
 	if (images.empty())
 		return false;
-	auto& im = images[hoverImageIndex.value_or(activeImageIndex)];
-	if (!im.texture)
-		return false;
-	*image = &im;
+	*image = &images[hoverImageIndex.value_or(activeImageIndex)];
 	return true;
+}
+
+bool App::TryGetVisibleImage(ImageEntity** image) {
+	return TryGetCurrentImage(image) && (*image)->texture;
+}
+
+bool App::TryGetVisibleImage(const ImageEntity** image) const {
+	return TryGetCurrentImage(image) && (*image)->texture;
 }
 
 void App::ResetTransform(ImageEntity& image) const {
@@ -488,4 +516,18 @@ void App::DrawGrid() const {
 	
 	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 255);
 	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
+}
+
+void App::CloseFile(ImageEntity* image) {
+	if (!image->texture) {
+		auto heapFuture = new std::future<Image>(std::move(image->future));
+		discardedFutures.push_back(heapFuture);
+	}
+	
+	auto it = std::find_if(images.begin(), images.end(), [image](const ImageEntity& im) { return &im == image; });
+	images.erase(it);
+
+	if (activeImageIndex > 0 && activeImageIndex >= images.size()) {
+		activeImageIndex = images.size() - 1;
+	}
 }

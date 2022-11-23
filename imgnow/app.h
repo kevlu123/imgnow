@@ -27,10 +27,12 @@ private:
 	void DrawGrid() const;
 	void UpdateStatus() const;
 	void CheckImageFinishedLoading();
-	bool SidebarVisible() const;
 	bool MouseOverSidebar() const;
+	bool TryGetCurrentImage(ImageEntity** image);
+	bool TryGetCurrentImage(const ImageEntity** image) const;
 	bool TryGetVisibleImage(ImageEntity** image);
 	bool TryGetVisibleImage(const ImageEntity** image) const;
+	void CloseFile(ImageEntity* image);
 	void ResetTransform(ImageEntity& image) const;
 	SDL_Rect GetImageRect() const;
 	std::vector<ImageEntity> images;

@@ -109,6 +109,11 @@ bool Window::GetKeyReleased(SDL_Scancode key) const {
 	return it != keyStates.end() && it->second == KeyState::Released;
 }
 
+bool Window::GetCtrlKeyDown() const {
+	return GetKeyDown(SDL_Scancode::SDL_SCANCODE_LCTRL)
+		|| GetKeyDown(SDL_Scancode::SDL_SCANCODE_RCTRL);
+}
+
 bool Window::GetMouseDown(int button) const {
 	return mouseStates[button - 1] == KeyState::Down || mouseStates[button - 1] == KeyState::Pressed;
 }
