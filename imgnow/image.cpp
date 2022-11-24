@@ -3,15 +3,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_FAILURE_USERMSG
 #include "stb_image.h"
-#include <filesystem>
 
-Image::Image(const char* path) {
+Image::Image(const char* path) {	
 	if (uint8_t* data = stbi_load(path, &width, &height, &channels, 4)) {
 		this->data = std::shared_ptr<uint8_t>(data, stbi_image_free);
-		this->path = std::filesystem::absolute(path).string();
 	} else {
 		error = stbi_failure_reason();
-		this->path = path;
 	}
 }
 
@@ -46,10 +43,6 @@ const uint8_t* Image::GetPixels() const {
 
 bool Image::Valid() const {
 	return (bool)data;
-}
-
-const std::string& Image::Path() const {
-	return path;
 }
 
 const std::string& Image::Error() const {

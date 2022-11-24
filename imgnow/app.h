@@ -1,8 +1,10 @@
 #pragma once
 #include "window.h"
 #include <optional>
+#include <string>
 
 struct ImageEntity {
+	std::string path;
 	std::future<Image> future;
 	Image image;
 	SDL_Texture* texture;
@@ -26,12 +28,14 @@ private:
 	void UpdateSidebar();
 	void DrawGrid() const;
 	void UpdateStatus() const;
-	void CheckImageFinishedLoading();
+	void UpdateImageLoading();
 	bool MouseOverSidebar() const;
 	bool TryGetCurrentImage(ImageEntity** image);
 	bool TryGetCurrentImage(const ImageEntity** image) const;
 	bool TryGetVisibleImage(ImageEntity** image);
 	bool TryGetVisibleImage(const ImageEntity** image) const;
+	void QueueFileLoad(std::string path);
+	void ShowOpenFileDialog();
 	void CloseFile(ImageEntity* image);
 	void ResetTransform(ImageEntity& image) const;
 	SDL_Rect GetImageRect() const;
@@ -44,4 +48,6 @@ private:
 	float sidebarAnimatedPosition = 1; // Between 0 and 1
 	bool gridEnabled = false;
 	bool fullscreen = false;
+	int activeLoadThreads = 0;
+	int maxLoadThreads = 1;
 };

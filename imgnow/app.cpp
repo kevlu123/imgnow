@@ -8,16 +8,17 @@
  * React to window resize.
  * Configuration file.
  * Add app icon.
- * Open file.
- * Close file.
  * Reorder files.
  * Add linux build script.
+ * Scroll bars.
 */
 
 #include "app.h"
 #include "tinyfiledialogs.h"
 #include <tuple>
 #include <type_traits>
+#include <ranges>
+#include <filesystem>
 	
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
@@ -50,18 +51,16 @@ Copyright (c) 2022 Kevin Lu
 static std::vector<std::future<Image>*> discardedFutures;
 
 App::App(int argc, char** argv) : Window(1280, 720) {
-	// Begin loading images asynchronously
+	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
 	for (int i = 1; i < argc; i++) {
-		auto future = std::async(std::launch::async, [i, argv] { return Image(argv[i]); });
-		ImageEntity image{};
-		image.future = std::move(future);
-		images.push_back(std::move(image));
+		QueueFileLoad(argv[i]);
 	}
 
 	sidebarEnabled = argc > 2;
 }
 
 App::~App() {
+	SDL_HideWindow(GetWindow());
 	for (auto& image : images) {
 		if (image.texture) {
 			SDL_DestroyTexture(image.texture);
@@ -70,11 +69,11 @@ App::~App() {
 }
 
 void App::Update() {
-	CheckImageFinishedLoading();
+	UpdateImageLoading();
 
 	if (GetCtrlKeyDown()) {
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_O)) {
-
+			ShowOpenFileDialog();
 		} else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
 			ImageEntity* image = nullptr;
 			if (TryGetCurrentImage(&image)) {
@@ -140,7 +139,7 @@ void App::UpdateStatus() const {
 
 	static const std::string SEP = "  |  ";
 	std::string text = "imgnow" + SEP
-		+ image->image.Path() + SEP
+		+ image->path + SEP
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
 		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
 		+ "RGBA: " + hexColour + SEP
@@ -361,10 +360,11 @@ void App::UpdateSidebar() {
 	}
 }
 
-void App::CheckImageFinishedLoading() {
+void App::UpdateImageLoading() {
 	// Check if any discarded futures have finished loading
 	for (auto it = discardedFutures.begin(); it != discardedFutures.end(); ++it) {
 		if ((*it)->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+			activeLoadThreads--;
 			delete *it;
 			it = discardedFutures.erase(it);
 			if (it == discardedFutures.end())
@@ -372,6 +372,7 @@ void App::CheckImageFinishedLoading() {
 		}
 	}
 
+	// Check if any futures have finished loading
 	for (size_t i = 0; i < images.size(); i++) {
 		auto& image = images[i];
 		if (!image.future.valid())
@@ -380,43 +381,64 @@ void App::CheckImageFinishedLoading() {
 		// Check if image has loaded
 		if (image.future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
 			continue;
+		activeLoadThreads--;
 
 		// Check for errors
 		Image img = image.future.get();
 		if (!img.Valid()) {
 			images.erase(images.begin() + i);
-			std::string msg = "Cannot load " + img.Path()
+			i--;
+			std::string msg = "Cannot load " + image.path
 				+ ".\nReason: " + img.Error() + ".";
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg.c_str(), GetWindow());
 			continue;
 		}
+		
+		// Create surface
+		SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+			(void*)img.GetPixels(),
+			img.GetWidth(),
+			img.GetHeight(),
+			32,
+			img.GetWidth() * 4,
+			SDL_PixelFormatEnum::SDL_PIXELFORMAT_ABGR8888);
+		if (!surface)
+			throw SDLException();
 
 		// Create texture
-		SDL_Texture* tex = SDL_CreateTexture(
-			GetRenderer(),
-			SDL_PIXELFORMAT_RGBA32,
-			SDL_TEXTUREACCESS_STATIC,
-			img.GetWidth(),
-			img.GetHeight());
-		if (!tex)
-			throw SDLException();
-		
-		int ec = SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
-		if (ec)
-			throw SDLException();
-
-		ec = SDL_UpdateTexture(
-			tex,
-			nullptr,
-			img.GetPixels(),
-			img.GetWidth() * 4);
-		if (ec)
+		SDL_Texture* texture = SDL_CreateTextureFromSurface(GetRenderer(), surface);
+		SDL_FreeSurface(surface);
+		if (!texture)
 			throw SDLException();
 		
 		image.image = std::move(img);
-		image.texture = tex;
+		image.texture = texture;
 
 		ResetTransform(image);
+
+		activeImageIndex = images.size() - 1;
+	}
+
+	// Begin loading images that haven't been loaded yet
+	for (auto it = images.begin(); it != images.end(); ++it) {
+		if (activeLoadThreads >= maxLoadThreads)
+			break;
+
+		// Skip if image is already open
+		auto match = [&](const ImageEntity& im) { return im.path == it->path; };
+		if (std::any_of(images.begin(), it, match)) {
+			it = images.erase(it);
+			if (it == images.end())
+				break;
+			continue;
+		}
+		
+		if (!it->texture && !it->future.valid()) {
+			it->future = std::async(std::launch::async, [path = it->path] {
+				return Image(path.c_str());
+				});
+			activeLoadThreads++;
+		}
 	}
 }
 
@@ -516,6 +538,45 @@ void App::DrawGrid() const {
 	
 	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 255);
 	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
+}
+
+void App::QueueFileLoad(std::string path) {
+	std::error_code ec{};
+	auto canonicalPath = std::filesystem::canonical(path, ec);
+	if (!ec) {
+		path = canonicalPath.string();
+	}
+
+	ImageEntity image{};
+	image.path = std::move(path);
+	images.push_back(std::move(image));
+}
+
+void App::ShowOpenFileDialog() {
+	static const char* filters[] = {
+		"*.jpeg", "*.jpg",
+		"*.png", "*.bmp",
+		"*.tga", "*.gif",
+		"*.hdr", "*.psd",
+		"*.pic", "*.pgm",
+		"*.ppm",
+	};
+	const char* paths = tinyfd_openFileDialog(
+		"Open File",
+		nullptr,
+		(int)std::size(filters),
+		filters,
+		nullptr,
+		1);
+	if (!paths)
+		return;
+	
+	auto split = std::string(paths)
+		| std::views::split('|')
+		| std::views::transform([](auto&& s) { return std::string(s.begin(), s.end()); });
+	for (const auto& path : split) {
+		QueueFileLoad(path);
+	}
 }
 
 void App::CloseFile(ImageEntity* image) {

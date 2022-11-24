@@ -19,7 +19,6 @@ struct Image {
 	int GetChannels() const;
 	uint32_t GetPixel(int x, int y) const;
 	const uint8_t* GetPixels() const;
-	const std::string& Path() const;
 	bool Valid() const;
 	const std::string& Error() const;
 private:
@@ -27,6 +26,5 @@ private:
 	int height = 0;
 	int channels = 0;
 	std::shared_ptr<uint8_t> data; // Unique but uses custom deleter
-	std::string path;
 	std::string error;
 };

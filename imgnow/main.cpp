@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
 	
 	try {
 		App(argc, argv).Run();
-	} catch (SDLException& ex) {
+	} catch (std::exception& ex) {
 		SDL_ShowSimpleMessageBox(0, "Error", ex.what(), nullptr);
-		return 2;
+		return 1;
 	}
 	
 	return 0;
