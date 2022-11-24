@@ -514,11 +514,16 @@ void App::ResetTransform(ImageEntity& image) const {
 	auto [cw, ch] = GetClientSize();
 	float windowAspect = (float)cw / ch;
 	float imgAspect = image.image.GetAspectRatio();
+
+	bool rotated = image.display.rotation % 2 == 1;
 	if (imgAspect > windowAspect) {
-		image.display.scale = (float)cw / image.image.GetWidth();
+		int w = rotated ? image.image.GetHeight() : image.image.GetWidth();
+		image.display.scale = (float)cw / w;
 	} else {
-		image.display.scale = (float)ch / image.image.GetHeight();
+		int h = rotated ? image.image.GetWidth() : image.image.GetHeight();
+		image.display.scale = (float)ch / h;
 	}
+
 	image.display.x = (cw - image.image.GetWidth() * image.display.scale) / 2;
 	image.display.y = (ch - image.image.GetHeight() * image.display.scale) / 2;
 }
