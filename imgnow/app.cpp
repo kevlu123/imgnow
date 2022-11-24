@@ -10,7 +10,6 @@
  * Reorder files.
  * Add linux build script.
  * Scroll bars.
- * Reload from disk.
 */
 
 #include "app.h"
@@ -253,13 +252,20 @@ void App::UpdateActiveImage() {
 		}
 
 		// Rotate clockwise
-		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E) || GetKeyPressed(SDL_Scancode::SDL_SCANCODE_R)) {
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E)) {
 			display.rotation = (display.rotation + 1) % 4;
 		}
 
 		// Rotate 180 degrees
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
 			display.rotation = (display.rotation + 2) % 4;
+		}
+
+		// Reload
+		if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_R)) {
+			SDL_DestroyTexture(image->texture);
+			image->texture = nullptr;
+			image->image = Image();
 		}
 	}
 
@@ -451,7 +457,7 @@ void App::UpdateImageLoading() {
 
 		ResetTransform(image);
 
-		activeImageIndex = images.size() - 1;
+		activeImageIndex = i;
 	}
 
 	// Begin loading images that haven't been loaded yet
