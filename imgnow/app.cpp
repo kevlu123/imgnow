@@ -1,6 +1,5 @@
 /*
  * TODO:
- * Cap scroll speed.
  * Fix scrolling randomly inverting.
  * Scroll sidebar by dragging.
  * Rectangular selection.
@@ -11,6 +10,7 @@
  * Reorder files.
  * Add linux build script.
  * Scroll bars.
+ * Reload from disk.
 */
 
 #include "app.h"
@@ -35,7 +35,8 @@ Copyright (c) 2022 Kevin Lu
  0-9		Switch to Image
  Q		Rotate Anti-clockwise
  W		Rotate 180 Degrees
- E/R		Rotate Clockwise
+ E		Rotate Clockwise
+ R		Reload From Disk
  Z		Reset Zoom
  S		Toggle Sidebar
  F		Flip Horizontal

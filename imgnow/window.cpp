@@ -8,7 +8,6 @@ const char* SDLException::what() const noexcept {
 }
 
 Window::Window(int width, int height) {
-	// Initialize SDL
 	int ec = SDL_Init(SDL_INIT_VIDEO);
 	if (ec)
 		throw SDLException();
@@ -162,6 +161,7 @@ void Window::Run() {
 	while (ProcessMessages()) {
 		auto now = high_resolution_clock::now();
 		deltaTime = duration_cast<duration<float>>(now - lastTime).count();
+		deltaTime = std::min(deltaTime, 0.05f);
 		lastTime = now;
 
 		Update();
