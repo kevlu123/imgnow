@@ -127,11 +127,46 @@ void App::UpdateStatus() const {
 	auto [mx, my] = GetMousePosition();
 	SDL_Rect rect = GetImageRect();
 	
+	// Mouse position
 	SDL_Point offset{};
 	offset.x = (int)std::floor((mx - rect.x) / image->display.scale);
 	offset.y = (int)std::floor((my - rect.y) / image->display.scale);
+
+	SDL_Point flippedOffset = offset;
+	if (image->display.flipHorizontal) {
+		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
+		flippedOffset.x = w - offset.x - 1;
+	}
+	if (image->display.flipVertical) {
+		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
+		flippedOffset.y = h - offset.y - 1;
+	}
+	offset = flippedOffset;
 	
-	uint32_t colour = SDL_PointInRect(&offset, &rect) ? image->image.GetPixel(offset.x, offset.y) : 0x00000000;
+	SDL_Point rotatedOffset{};
+	switch (image->display.rotation) {
+	case 0:
+		rotatedOffset = offset;
+		break;
+	case 1:
+		rotatedOffset.x = offset.y;
+		rotatedOffset.y = image->image.GetHeight() - offset.x - 1;
+		break;
+	case 2:
+		rotatedOffset.x = image->image.GetWidth() - offset.x - 1;
+		rotatedOffset.y = image->image.GetHeight() - offset.y - 1;
+		break;
+	case 3:
+		rotatedOffset.x = image->image.GetWidth() - offset.y - 1;
+		rotatedOffset.y = offset.x;
+		break;
+	default: std::abort();
+	}
+	offset = rotatedOffset;
+	
+	// Pixel colour
+	SDL_Rect bounds = { 0, 0, image->image.GetWidth(), image->image.GetHeight() };
+	uint32_t colour = SDL_PointInRect(&offset, &bounds) ? image->image.GetPixel(offset.x, offset.y) : 0x00000000;
 	char hexColour[9]{};
 	for (int i = 0; i < 8; i++) {
 		hexColour[i] = "0123456789ABCDEF"[colour >> (28 - i * 4) & 0xF];
@@ -141,11 +176,10 @@ void App::UpdateStatus() const {
 	std::string text = "imgnow" + SEP
 		+ image->path + SEP
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
-		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
+		+ "XY: (" + std::to_string(rotatedOffset.x) + ", " + std::to_string(offset.y) + ")" + SEP
 		+ "RGBA: " + hexColour + SEP
 		+ "Channels: " + std::to_string(image->image.GetChannels()) + SEP
 		+ "Zoom: " + std::to_string((int)(image->display.scale * 100)) + "%";
-
 	SDL_SetWindowTitle(GetWindow(), text.c_str());
 }
 
