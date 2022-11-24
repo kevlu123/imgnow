@@ -28,6 +28,7 @@ struct Window {
 	bool GetMouseReleased(int button) const;
 	std::pair<float, float> GetScrollDelta() const;
 	std::pair<int, int> GetMousePosition() const;
+	std::pair<int, int> GetMouseDelta() const;
 	bool MouseInWindow() const;
 	std::pair<int, int> GetClientSize() const;
 	SDL_Window* GetWindow() const;
@@ -44,6 +45,7 @@ private:
 	std::array<KeyState, 5> mouseStates{};
 	std::pair<float, float> scrollDelta{};
 	std::pair<int, int> mousePosition{};
+	std::pair<int, int> mouseDelta{};
 	bool mouseInWindow = false;
 	float deltaTime = 0;
 };

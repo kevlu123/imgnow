@@ -7,6 +7,10 @@
 Image::Image(const char* path) {	
 	if (uint8_t* data = stbi_load(path, &width, &height, &channels, 4)) {
 		this->data = std::shared_ptr<uint8_t>(data, stbi_image_free);
+		if (width <= 0 || height <= 0) {
+			error = "non-positive dimensions";
+			this->data.reset();
+		}
 	} else {
 		error = stbi_failure_reason();
 	}

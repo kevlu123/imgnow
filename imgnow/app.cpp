@@ -13,11 +13,12 @@
 */
 
 #include "app.h"
-#include "tinyfiledialogs.h"
 #include <tuple>
 #include <type_traits>
 #include <ranges>
 #include <filesystem>
+
+#include "tinyfiledialogs.h"
 	
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
@@ -49,6 +50,13 @@ Copyright (c) 2022 Kevin Lu
 // Being heap allocated means that the destructor does not have to
 // be called when the program exits. This leak allows for quick termination.
 static std::vector<std::future<Image>*> discardedFutures;
+
+static SDL_Point ClampPoint(SDL_Point p, const SDL_Rect& rc) {
+	return {
+		std::clamp(p.x, rc.x, rc.x + rc.w),
+		std::clamp(p.y, rc.y, rc.y + rc.h),
+	};
+}
 
 App::App(int argc, char** argv) : Window(1280, 720) {
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
@@ -104,14 +112,8 @@ void App::Update() {
 	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
 	SDL_RenderClear(GetRenderer());
 
-	UpdateActiveImage();
-	
-	if (gridEnabled) {
-		DrawGrid();
-	}
-	
+	UpdateActiveImage();	
 	UpdateSidebar();
-
 	UpdateStatus();
 
 	SDL_RenderPresent(GetRenderer());
@@ -123,46 +125,10 @@ void App::UpdateStatus() const {
 		SDL_SetWindowTitle(GetWindow(), "imgnow");
 		return;
 	}
-
-	auto [mx, my] = GetMousePosition();
-	SDL_Rect rect = GetImageRect();
 	
 	// Mouse position
-	SDL_Point offset{};
-	offset.x = (int)std::floor((mx - rect.x) / image->display.scale);
-	offset.y = (int)std::floor((my - rect.y) / image->display.scale);
-
-	SDL_Point flippedOffset = offset;
-	if (image->display.flipHorizontal) {
-		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
-		flippedOffset.x = w - offset.x - 1;
-	}
-	if (image->display.flipVertical) {
-		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
-		flippedOffset.y = h - offset.y - 1;
-	}
-	offset = flippedOffset;
-	
-	SDL_Point rotatedOffset{};
-	switch (image->display.rotation) {
-	case 0:
-		rotatedOffset = offset;
-		break;
-	case 1:
-		rotatedOffset.x = offset.y;
-		rotatedOffset.y = image->image.GetHeight() - offset.x - 1;
-		break;
-	case 2:
-		rotatedOffset.x = image->image.GetWidth() - offset.x - 1;
-		rotatedOffset.y = image->image.GetHeight() - offset.y - 1;
-		break;
-	case 3:
-		rotatedOffset.x = image->image.GetWidth() - offset.y - 1;
-		rotatedOffset.y = offset.x;
-		break;
-	default: std::abort();
-	}
-	offset = rotatedOffset;
+	auto [mx, my] = GetMousePosition();
+	SDL_Point offset = ScreenToImagePosition({ mx, my });
 	
 	// Pixel colour
 	SDL_Rect bounds = { 0, 0, image->image.GetWidth(), image->image.GetHeight() };
@@ -176,7 +142,7 @@ void App::UpdateStatus() const {
 	std::string text = "imgnow" + SEP
 		+ image->path + SEP
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
-		+ "XY: (" + std::to_string(rotatedOffset.x) + ", " + std::to_string(offset.y) + ")" + SEP
+		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
 		+ "RGBA: " + hexColour + SEP
 		+ "Channels: " + std::to_string(image->image.GetChannels()) + SEP
 		+ "Zoom: " + std::to_string((int)(image->display.scale * 100)) + "%";
@@ -195,6 +161,8 @@ void App::UpdateActiveImage() {
 	auto [_, sy] = GetScrollDelta();
 	sy *= GetDeltaTime() * 5;
 
+	bool dragged = false;
+
 	// Zoom
 	if (sy && !MouseOverSidebar()) {
 		float& oldScale = display.scale;
@@ -206,12 +174,14 @@ void App::UpdateActiveImage() {
 
 	// Begin drag
 	else if ((GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) && !MouseOverSidebar()) {
+		dragged = true;
 		dragLocation = { mx, my };
 	}
 
 	// Continue drag
 	else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
 		if (dragLocation) {
+			dragged = true;
 			display.x += mx - dragLocation.value().x;
 			display.y += my - dragLocation.value().y;
 			dragLocation.value().x = mx;
@@ -219,12 +189,30 @@ void App::UpdateActiveImage() {
 		}
 	}
 
-	// End drag
-	else {
-		dragLocation = std::nullopt;
+	// Begin select
+	else if (GetMousePressed(SDL_BUTTON_RIGHT) && !MouseOverSidebar()) {
+		SDL_Rect rc = { 0, 0, image->image.GetWidth() - 1, image->image.GetHeight() - 1 };
+		display.selectFrom = ClampPoint(ScreenToImagePosition({ mx, my }), rc);
+		display.selectTo = { -1, -1 };
 	}
 
-	if (!GetCtrlKeyDown()) {
+	// Continue select
+	else if (GetMouseDown(SDL_BUTTON_RIGHT)) {
+		auto [mdx, mdy] = GetMouseDelta();
+		if (display.selectTo.x != -1 || std::abs(mdx) + std::abs(mdy) > 0) {
+			SDL_Rect rc = { 0, 0, image->image.GetWidth() - 1, image->image.GetHeight() - 1 };
+			display.selectTo = ClampPoint(ScreenToImagePosition({ mx, my }), rc);
+		}
+	}
+
+	// Deselect
+	else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_ESCAPE)) {
+		display.selectFrom = { -1, -1 };
+		display.selectTo = { -1, -1 };
+	}
+
+	// Keyboard shortcuts
+	else if (!GetCtrlKeyDown()) {
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Z)) {
 			ResetTransform(*image);
 		}
@@ -269,6 +257,11 @@ void App::UpdateActiveImage() {
 		}
 	}
 
+	// End drag
+	if (!dragged) {
+		dragLocation = std::nullopt;
+	}
+
 	// Animate rotation smoothly
 	float dist = std::abs(display.animatedRotation - display.rotation);
 	if (dist < 0.001f) {
@@ -306,6 +299,36 @@ void App::UpdateActiveImage() {
 		90 * display.animatedRotation,
 		nullptr,
 		(SDL_RendererFlip)flip);
+
+	// Draw grid
+	if (gridEnabled) {
+		DrawGrid();
+	}
+
+	// Draw selection
+	if (display.selectTo.x != -1) {
+		SDL_Rect selection = {
+			std::min(display.selectFrom.x, display.selectTo.x),
+			std::min(display.selectFrom.y, display.selectTo.y),
+			std::abs(display.selectFrom.x - display.selectTo.x) + 1,
+			std::abs(display.selectFrom.y - display.selectTo.y) + 1,
+		};
+		SDL_Point topLeft = ImageToScreenPosition({ selection.x, selection.y });
+		SDL_Point bottomRight = ImageToScreenPosition(
+			{ selection.x + selection.w,
+			selection.y + selection.h });
+		SDL_Rect dst = {
+			topLeft.x,
+			topLeft.y,
+			bottomRight.x - topLeft.x,
+			bottomRight.y - topLeft.y
+		};
+		SDL_Rect screen = dst;
+		SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 100);
+		SDL_RenderFillRect(GetRenderer(), &screen);
+		SDL_SetRenderDrawColor(GetRenderer(), 200, 200, 200, 200);
+		SDL_RenderDrawRect(GetRenderer(), &screen);
+	}
 }
 
 void App::UpdateSidebar() {
@@ -393,11 +416,7 @@ void App::UpdateSidebar() {
 	// Scroll sidebar
 	if (MouseOverSidebar()) {
 		sidebarScroll -= sy * GetDeltaTime() * 800;
-		if (sidebarScroll > y) {
-			sidebarScroll = y;
-		} else if (sidebarScroll < 0) {
-			sidebarScroll = 0;
-		}
+		sidebarScroll = std::clamp(sidebarScroll, 0.0f, y);
 	}
 }
 
@@ -485,6 +504,7 @@ void App::UpdateImageLoading() {
 
 bool App::MouseOverSidebar() const {
 	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH
+		&& sidebarEnabled
 		&& MouseInWindow();
 }
 
@@ -637,4 +657,95 @@ void App::CloseFile(ImageEntity* image) {
 	if (activeImageIndex > 0 && activeImageIndex >= images.size()) {
 		activeImageIndex = images.size() - 1;
 	}
+}
+
+SDL_Point App::ScreenToImagePositionRaw(SDL_Point p) const {
+	const ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+	SDL_Rect rect = GetImageRect();
+	return {
+		(int)std::floor((p.x - rect.x) / image->display.scale),
+		(int)std::floor((p.y - rect.y) / image->display.scale)
+	};
+}
+
+SDL_Point App::ScreenToImagePosition(SDL_Point p) const {
+	SDL_Point offset = ScreenToImagePositionRaw(p);
+	const ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+
+	SDL_Point flippedOffset = offset;
+	if (image->display.flipHorizontal) {
+		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
+		flippedOffset.x = w - offset.x - 1;
+	}
+	if (image->display.flipVertical) {
+		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
+		flippedOffset.y = h - offset.y - 1;
+	}
+
+	SDL_Point rotatedOffset{};
+	switch (image->display.rotation) {
+	case 0:
+		rotatedOffset = flippedOffset;
+		break;
+	case 1:
+		rotatedOffset.x = flippedOffset.y;
+		rotatedOffset.y = image->image.GetHeight() - flippedOffset.x - 1;
+		break;
+	case 2:
+		rotatedOffset.x = image->image.GetWidth() - flippedOffset.x - 1;
+		rotatedOffset.y = image->image.GetHeight() - flippedOffset.y - 1;
+		break;
+	case 3:
+		rotatedOffset.x = image->image.GetWidth() - flippedOffset.y - 1;
+		rotatedOffset.y = flippedOffset.x;
+		break;
+	default:
+		std::abort();
+	}
+	
+	return rotatedOffset;
+}
+
+SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
+	const ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+	SDL_Rect rect = GetImageRect();
+
+	SDL_Point unrotated{};
+	switch (image->display.rotation) {
+	case 0:
+		unrotated = p;
+		break;
+	case 1:
+		unrotated.x = image->image.GetHeight() - p.y - 1;
+		unrotated.y = p.x;
+		break;
+	case 2:
+		unrotated.x = image->image.GetWidth() - p.x - 1;
+		unrotated.y = image->image.GetHeight() - p.y - 1;
+		break;
+	case 3:
+		unrotated.x = p.y;
+		unrotated.y = image->image.GetWidth() - p.x - 1;
+		break;
+	default:
+		std::abort();
+	}
+
+	SDL_Point unflipped = unrotated;
+	if (image->display.flipHorizontal) {
+		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
+		unflipped.x = w - unrotated.x - 1;
+	}
+	if (image->display.flipVertical) {
+		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
+		unflipped.y = h - unrotated.y - 1;
+	}
+	
+	return {
+		(int)std::floor(unflipped.x * image->display.scale + rect.x),
+		(int)std::floor(unflipped.y * image->display.scale + rect.y)
+	};
 }

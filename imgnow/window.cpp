@@ -59,6 +59,8 @@ bool Window::ProcessMessages() {
 		case SDL_MOUSEMOTION:
 			mousePosition.first = ev.motion.x;
 			mousePosition.second = ev.motion.y;
+			mouseDelta.first += ev.motion.xrel;
+			mouseDelta.second += ev.motion.yrel;
 			break;
 		case SDL_WINDOWEVENT:
 			switch (ev.window.event) {
@@ -91,6 +93,8 @@ void Window::UpdateInput() {
 			state = KeyState::Up;
 		}
 	}
+	
+	mouseDelta = {};
 }
 
 bool Window::GetKeyDown(SDL_Scancode key) const {
@@ -131,6 +135,10 @@ std::pair<float, float> Window::GetScrollDelta() const {
 
 std::pair<int, int> Window::GetMousePosition() const {
 	return mousePosition;
+}
+
+std::pair<int, int> Window::GetMouseDelta() const {
+	return mouseDelta;
 }
 
 bool Window::MouseInWindow() const {

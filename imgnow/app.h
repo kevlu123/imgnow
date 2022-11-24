@@ -16,6 +16,8 @@ struct ImageEntity {
 		bool flipVertical = false;
 		int rotation = 0; // In 90 degree anti-clockwise units
 		float animatedRotation = 0;
+		SDL_Point selectFrom = { -1, -1 };
+		SDL_Point selectTo = { -1, -1 };
 	} display;
 };
 
@@ -39,6 +41,9 @@ private:
 	void CloseFile(ImageEntity* image);
 	void ResetTransform(ImageEntity& image) const;
 	SDL_Rect GetImageRect() const;
+	SDL_Point ScreenToImagePositionRaw(SDL_Point p) const; // Does not perform rotation/flipping
+	SDL_Point ScreenToImagePosition(SDL_Point p) const; // Performs rotation/flipping
+	SDL_Point ImageToScreenPosition(SDL_Point p) const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;
