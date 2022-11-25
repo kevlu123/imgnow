@@ -1,6 +1,5 @@
 /*
  * TODO:
- * Fix scrolling randomly inverting.
  * React to window resize.
  * Configuration file.
  * Add app icon.
@@ -196,9 +195,12 @@ void App::UpdateActiveImage() {
 	if (sy && !MouseOverSidebar()) {
 		float& oldScale = display.scale;
 		float newScale = oldScale + sy * oldScale;
-		display.x = (display.x - mx) / oldScale * newScale + mx;
-		display.y = (display.y - my) / oldScale * newScale + my;
-		oldScale = newScale;
+		newScale = std::min(newScale, 512.0f);
+		if (newScale > 0) {
+			display.x = (display.x - mx) / oldScale * newScale + mx;
+			display.y = (display.y - my) / oldScale * newScale + my;
+			oldScale = newScale;
+		}
 	}
 
 	// Begin drag
