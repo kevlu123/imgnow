@@ -9,8 +9,7 @@
  * Scroll bars.
  * Multiple colour text representations.
  * Copy colour to clipboard.
- * Fix reset transform for narrow windows.
-*/
+ */
 
 #include "app.h"
 #include <tuple>
@@ -44,7 +43,7 @@ Copyright (c) 2022 Kevin Lu
  F		Flip Horizontal
  V		Flip Vertical
  S		Toggle Sidebar
- Z		Reset Zoom
+ Z		Reset Transform
 ==============================
 )";
 
@@ -248,10 +247,10 @@ void App::UpdateActiveImage() {
 		// Flipping:
 		// Since flipping is applied before rotation for SDL_RenderCopyEx,
 		// we need to take into account the current rotation to toggle the correct flag.
-		bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 0
-			|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 1;
-		bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && display.rotation % 2 == 1
-			|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && display.rotation % 2 == 0;
+		bool flipH = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && !RotatedPerpendicular()
+			|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && RotatedPerpendicular();
+		bool flipV = GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F) && RotatedPerpendicular()
+			|| GetKeyPressed(SDL_Scancode::SDL_SCANCODE_V) && !RotatedPerpendicular();
 		if (flipH) {
 			display.flipHorizontal = !display.flipHorizontal;
 		}
@@ -571,8 +570,11 @@ void App::ResetTransform(ImageEntity& image) const {
 	auto [cw, ch] = GetClientSize();
 	float windowAspect = (float)cw / ch;
 	float imgAspect = image.image.GetAspectRatio();
+	if (RotatedPerpendicular()) {
+		imgAspect = 1.0f / imgAspect;
+	}
 
-	bool rotated = image.display.rotation % 2 == 1;
+	bool rotated = RotatedPerpendicular();
 	if (imgAspect > windowAspect) {
 		int w = rotated ? image.image.GetHeight() : image.image.GetWidth();
 		image.display.scale = (float)cw / w;
@@ -588,7 +590,7 @@ void App::ResetTransform(ImageEntity& image) const {
 SDL_Rect App::GetImageRect() const {
 	const ImageEntity* image = nullptr;
 	TryGetVisibleImage(&image);
-	if (image->display.rotation % 2 == 0) {
+	if (!RotatedPerpendicular()) {
 		return {
 			(int)image->display.x,
 			(int)image->display.y,
@@ -694,11 +696,11 @@ SDL_Point App::ScreenToImagePosition(SDL_Point p) const {
 
 	SDL_Point flipped = offset;
 	if (image->display.flipHorizontal) {
-		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
+		int w = !RotatedPerpendicular() ? image->image.GetWidth() : image->image.GetHeight();
 		flipped.x = w - offset.x - 1;
 	}
 	if (image->display.flipVertical) {
-		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
+		int h = RotatedPerpendicular() ? image->image.GetWidth() : image->image.GetHeight();
 		flipped.y = h - offset.y - 1;
 	}
 
@@ -762,11 +764,11 @@ SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
 
 	SDL_Point unflipped = unrotated;
 	if (image->display.flipHorizontal) {
-		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
+		int w = !RotatedPerpendicular() ? image->image.GetWidth() : image->image.GetHeight();
 		unflipped.x = w - unrotated.x - 1;
 	}
 	if (image->display.flipVertical) {
-		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
+		int h = RotatedPerpendicular() ? image->image.GetWidth() : image->image.GetHeight();
 		unflipped.y = h - unrotated.y - 1;
 	}
 	
@@ -800,8 +802,8 @@ void App::CopyToClipboard() const {
 		transformed = std::move(data);
 	} else {
 		transformed.resize(data.size());
-		int dstW = display.rotation % 2 == 0 ? rect.w : rect.h;
-		int dstH = display.rotation % 2 == 1 ? rect.w : rect.h;
+		int dstW = !RotatedPerpendicular() ? rect.w : rect.h;
+		int dstH = RotatedPerpendicular() ? rect.w : rect.h;
 		for (int y = 0; y < rect.h; y++) {
 			for (int x = 0; x < rect.w; x++) {
 				int srcX = x;
@@ -867,4 +869,10 @@ void App::CopyToClipboard() const {
 			"Failed to copy image to clipboard",
 			GetWindow());
 	}
+}
+
+bool App::RotatedPerpendicular() const {
+	const ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+	return image->display.rotation % 2 == 1;
 }

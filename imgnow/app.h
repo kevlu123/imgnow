@@ -44,6 +44,7 @@ private:
 	SDL_Rect GetImageRect() const;
 	SDL_Point ScreenToImagePosition(SDL_Point p) const;
 	SDL_Point ImageToScreenPosition(SDL_Point p) const;
+	bool RotatedPerpendicular() const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;
