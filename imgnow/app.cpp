@@ -61,6 +61,15 @@ static SDL_Point ClampPoint(const SDL_Point& p, const SDL_Rect& rc) {
 	};
 }
 
+static SDL_Rect RectFromPoints(const SDL_Point& p, const SDL_Point& q) {
+	return {
+		std::min(p.x, q.x),
+		std::min(p.y, q.y),
+		std::abs(p.x - q.x),
+		std::abs(p.y - q.y),
+	};
+}
+
 App::App(int argc, char** argv) : Window(1280, 720) {
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
 	for (int i = 1; i < argc; i++) {
@@ -324,22 +333,12 @@ void App::UpdateActiveImage() {
 
 	// Draw selection
 	if (display.selectTo.x != -1) {
-		SDL_Rect selection = {
-			std::min(display.selectFrom.x, display.selectTo.x),
-			std::min(display.selectFrom.y, display.selectTo.y),
-			std::abs(display.selectFrom.x - display.selectTo.x) + 1,
-			std::abs(display.selectFrom.y - display.selectTo.y) + 1,
-		};
+		SDL_Rect selection = RectFromPoints(display.selectFrom, display.selectTo);
 		SDL_Point topLeft = ImageToScreenPosition({ selection.x, selection.y });
 		SDL_Point bottomRight = ImageToScreenPosition(
-			{ selection.x + selection.w,
-			selection.y + selection.h });
-		SDL_Rect dst = {
-			topLeft.x,
-			topLeft.y,
-			bottomRight.x - topLeft.x,
-			bottomRight.y - topLeft.y
-		};
+			{ selection.x + selection.w + 1,
+			selection.y + selection.h + 1 });
+		SDL_Rect dst = RectFromPoints(topLeft, bottomRight);
 		SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 100);
 		SDL_RenderFillRect(GetRenderer(), &dst);
 		SDL_SetRenderDrawColor(GetRenderer(), 200, 200, 200, 200);
@@ -747,16 +746,16 @@ SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
 		unrotated = p;
 		break;
 	case 1:
-		unrotated.x = image->image.GetHeight() - p.y - 1;
+		unrotated.x = image->image.GetHeight() - p.y;
 		unrotated.y = p.x;
 		break;
 	case 2:
-		unrotated.x = image->image.GetWidth() - p.x - 1;
-		unrotated.y = image->image.GetHeight() - p.y - 1;
+		unrotated.x = image->image.GetWidth() - p.x;
+		unrotated.y = image->image.GetHeight() - p.y;
 		break;
 	case 3:
 		unrotated.x = p.y;
-		unrotated.y = image->image.GetWidth() - p.x - 1;
+		unrotated.y = image->image.GetWidth() - p.x;
 		break;
 	default:
 		std::abort();
@@ -765,11 +764,11 @@ SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
 	SDL_Point unflipped = unrotated;
 	if (image->display.flipHorizontal) {
 		int w = !RotatedPerpendicular() ? image->image.GetWidth() : image->image.GetHeight();
-		unflipped.x = w - unrotated.x - 1;
+		unflipped.x = w - unrotated.x;
 	}
 	if (image->display.flipVertical) {
 		int h = RotatedPerpendicular() ? image->image.GetWidth() : image->image.GetHeight();
-		unflipped.y = h - unrotated.y - 1;
+		unflipped.y = h - unrotated.y;
 	}
 	
 	return {
