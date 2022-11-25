@@ -5,6 +5,7 @@
 #include <array>
 #include <unordered_map>
 #include <future>
+#include <memory>
 
 struct SDLException : std::exception {
 	const char* what() const noexcept override;

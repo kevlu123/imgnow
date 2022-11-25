@@ -8,20 +8,22 @@ const char* SDLException::what() const noexcept {
 }
 
 Window::Window(int width, int height) {
-	int ec = SDL_Init(SDL_INIT_VIDEO);
-	if (ec)
+	if (SDL_Init(SDL_INIT_VIDEO))
 		throw SDLException();
 
-	ec = SDL_CreateWindowAndRenderer(
+	window = SDL_CreateWindow(
+		"",
+		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		width, height,
-		SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN,
-		&window,
-		&renderer);
-	if (ec)
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
+	if (!window)
 		throw SDLException();
 
-	ec = SDL_RenderSetVSync(renderer, 1);
-	if (ec)
+	renderer = SDL_CreateRenderer(
+		window,
+		-1,
+		0);
+	if (!renderer)
 		throw SDLException();
 	
 	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -174,6 +176,8 @@ void Window::Run() {
 
 		Update();
 		UpdateInput();
+
+		SDL_Delay(5);
 	}
 }
 

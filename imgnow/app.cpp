@@ -4,7 +4,6 @@
  * Configuration file.
  * Add app icon.
  * Reorder files.
- * Add linux build script.
  * Scroll bars.
  * Multiple colour text representations.
  * Copy colour to clipboard.
@@ -15,6 +14,8 @@
 #include <type_traits>
 #include <ranges>
 #include <filesystem>
+#include <cmath>
+#include <cstring> // memcpy
 
 #include "tinyfiledialogs.h"
 #include "clip.h"
@@ -677,11 +678,14 @@ void App::ShowOpenFileDialog() {
 	if (!paths)
 		return;
 	
-	auto split = std::string(paths)
+	std::string pathsStr = paths;
+	auto split = pathsStr
 		| std::views::split('|')
-		| std::views::transform([](auto&& s) { return std::string(s.begin(), s.end()); });
+		| std::views::transform([](auto&& s) {
+			return std::string_view(&*s.begin(), std::ranges::distance(s));
+			});
 	for (const auto& path : split) {
-		QueueFileLoad(path);
+		QueueFileLoad(std::string(path));
 	}
 }
 
