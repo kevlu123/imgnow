@@ -1,15 +1,14 @@
 /*
  * TODO:
  * Fix scrolling randomly inverting.
- * Scroll sidebar by dragging.
- * Rectangular selection.
- * Copy to clipboard.
  * React to window resize.
  * Configuration file.
  * Add app icon.
  * Reorder files.
  * Add linux build script.
  * Scroll bars.
+ * Multiple colour text representations.
+ * Copy colour to clipboard.
 */
 
 #include "app.h"
@@ -19,6 +18,7 @@
 #include <filesystem>
 
 #include "tinyfiledialogs.h"
+#include "clip.h"
 	
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
@@ -51,7 +51,7 @@ Copyright (c) 2022 Kevin Lu
 // be called when the program exits. This leak allows for quick termination.
 static std::vector<std::future<Image>*> discardedFutures;
 
-static SDL_Point ClampPoint(SDL_Point p, const SDL_Rect& rc) {
+static SDL_Point ClampPoint(const SDL_Point& p, const SDL_Rect& rc) {
 	return {
 		std::clamp(p.x, rc.x, rc.x + rc.w),
 		std::clamp(p.y, rc.y, rc.y + rc.h),
@@ -323,11 +323,14 @@ void App::UpdateActiveImage() {
 			bottomRight.x - topLeft.x,
 			bottomRight.y - topLeft.y
 		};
-		SDL_Rect screen = dst;
 		SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 100);
-		SDL_RenderFillRect(GetRenderer(), &screen);
+		SDL_RenderFillRect(GetRenderer(), &dst);
 		SDL_SetRenderDrawColor(GetRenderer(), 200, 200, 200, 200);
-		SDL_RenderDrawRect(GetRenderer(), &screen);
+		SDL_RenderDrawRect(GetRenderer(), &dst);
+
+		if (GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_C)) {
+			CopyToClipboard();
+		}
 	}
 }
 
@@ -659,53 +662,52 @@ void App::CloseFile(ImageEntity* image) {
 	}
 }
 
-SDL_Point App::ScreenToImagePositionRaw(SDL_Point p) const {
+SDL_Point App::ScreenToImagePosition(SDL_Point p) const {
 	const ImageEntity* image = nullptr;
 	TryGetVisibleImage(&image);
 	SDL_Rect rect = GetImageRect();
-	return {
+	
+	SDL_Point offset = {
 		(int)std::floor((p.x - rect.x) / image->display.scale),
 		(int)std::floor((p.y - rect.y) / image->display.scale)
 	};
-}
 
-SDL_Point App::ScreenToImagePosition(SDL_Point p) const {
-	SDL_Point offset = ScreenToImagePositionRaw(p);
-	const ImageEntity* image = nullptr;
-	TryGetVisibleImage(&image);
-
-	SDL_Point flippedOffset = offset;
+	SDL_Point flipped = offset;
 	if (image->display.flipHorizontal) {
 		int w = image->display.rotation % 2 == 0 ? image->image.GetWidth() : image->image.GetHeight();
-		flippedOffset.x = w - offset.x - 1;
+		flipped.x = w - offset.x - 1;
 	}
 	if (image->display.flipVertical) {
 		int h = image->display.rotation % 2 == 1 ? image->image.GetWidth() : image->image.GetHeight();
-		flippedOffset.y = h - offset.y - 1;
+		flipped.y = h - offset.y - 1;
 	}
 
-	SDL_Point rotatedOffset{};
-	switch (image->display.rotation) {
+	SDL_Point rotated{};
+	int rot = image->display.rotation;
+	if (image->display.flipHorizontal != image->display.flipVertical) {
+		rot = (4 - rot) % 4;
+	}
+	switch (rot) {
 	case 0:
-		rotatedOffset = flippedOffset;
+		rotated = flipped;
 		break;
 	case 1:
-		rotatedOffset.x = flippedOffset.y;
-		rotatedOffset.y = image->image.GetHeight() - flippedOffset.x - 1;
+		rotated.x = flipped.y;
+		rotated.y = image->image.GetHeight() - flipped.x - 1;
 		break;
 	case 2:
-		rotatedOffset.x = image->image.GetWidth() - flippedOffset.x - 1;
-		rotatedOffset.y = image->image.GetHeight() - flippedOffset.y - 1;
+		rotated.x = image->image.GetWidth() - flipped.x - 1;
+		rotated.y = image->image.GetHeight() - flipped.y - 1;
 		break;
 	case 3:
-		rotatedOffset.x = image->image.GetWidth() - flippedOffset.y - 1;
-		rotatedOffset.y = flippedOffset.x;
+		rotated.x = image->image.GetWidth() - flipped.y - 1;
+		rotated.y = flipped.x;
 		break;
 	default:
 		std::abort();
 	}
 	
-	return rotatedOffset;
+	return rotated;
 }
 
 SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
@@ -714,7 +716,11 @@ SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
 	SDL_Rect rect = GetImageRect();
 
 	SDL_Point unrotated{};
-	switch (image->display.rotation) {
+	int rot = image->display.rotation;
+	if (image->display.flipHorizontal != image->display.flipVertical) {
+		rot = (4 - rot) % 4;
+	}
+	switch (rot) {
 	case 0:
 		unrotated = p;
 		break;
@@ -748,4 +754,97 @@ SDL_Point App::ImageToScreenPosition(SDL_Point p) const {
 		(int)std::floor(unflipped.x * image->display.scale + rect.x),
 		(int)std::floor(unflipped.y * image->display.scale + rect.y)
 	};
+}
+
+void App::CopyToClipboard() const {
+	const ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+	const auto& display = image->display;
+
+	SDL_Rect rect = {
+		std::min(display.selectFrom.x, display.selectTo.x),
+		std::min(display.selectFrom.y, display.selectTo.y),
+		std::abs(display.selectFrom.x - display.selectTo.x) + 1,
+		std::abs(display.selectFrom.y - display.selectTo.y) + 1,
+	};
+	
+	std::vector<uint8_t> data;
+	const uint8_t* fullImage = image->image.GetPixels();
+	for (int dy = 0; dy < rect.h; dy++) {
+		const uint8_t* p = fullImage + 4 * (image->image.GetWidth() * (rect.y + dy) + rect.x);
+		data.insert(data.end(), p, p + 4 * rect.w);
+	}
+
+	std::vector<uint8_t> transformed;
+	if (!display.flipHorizontal && !display.flipVertical && display.rotation == 0) {
+		transformed = std::move(data);
+	} else {
+		transformed.resize(data.size());
+		int dstW = display.rotation % 2 == 0 ? rect.w : rect.h;
+		int dstH = display.rotation % 2 == 1 ? rect.w : rect.h;
+		for (int y = 0; y < rect.h; y++) {
+			for (int x = 0; x < rect.w; x++) {
+				int srcX = x;
+				int srcY = y;
+				if (display.flipHorizontal) {
+					srcX = rect.w - x - 1;
+				}
+				if (display.flipVertical) {
+					srcY = rect.h - y - 1;
+				}
+
+				int dstX = x;
+				int dstY = y;
+				switch (display.rotation) {
+				case 0:
+					break;
+				case 1:
+					dstX = rect.h - y - 1;
+					dstY = x;
+					break;
+				case 2:
+					dstX = rect.w - x - 1;
+					dstY = rect.h - y - 1;
+					break;
+				case 3:
+					dstX = y;
+					dstY = rect.w - x - 1;
+					break;
+				}
+
+				std::memcpy(
+					transformed.data() + 4 * (dstY * dstW + dstX),
+					data.data() + 4 * (srcY * rect.w + srcX),
+					4);
+			}
+		}
+
+		// Update the copied image dimensions
+		rect.w = dstW;
+		rect.h = dstH;
+	}
+	
+	clip::image_spec spec{};
+	spec.alpha_mask = 0xFF000000;
+	spec.blue_mask =  0x00FF0000;
+	spec.green_mask = 0x0000FF00;
+	spec.red_mask =   0x000000FF;
+	spec.alpha_shift = 24;
+	spec.blue_shift = 16;
+	spec.green_shift = 8;
+	spec.red_shift = 0;
+	spec.width = rect.w;
+	spec.height = rect.h;
+	spec.bits_per_pixel = 32;
+	spec.bytes_per_row = spec.bits_per_pixel / 8 * spec.width;
+	
+	clip::image clipimage(transformed.data(), spec);
+	
+	if (!clip::set_image(clipimage)) {
+		SDL_ShowSimpleMessageBox(
+			SDL_MESSAGEBOX_ERROR,
+			"Clipboard Error",
+			"Failed to copy image to clipboard",
+			GetWindow());
+	}
 }

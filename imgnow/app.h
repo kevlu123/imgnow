@@ -40,9 +40,9 @@ private:
 	void ShowOpenFileDialog();
 	void CloseFile(ImageEntity* image);
 	void ResetTransform(ImageEntity& image) const;
+	void CopyToClipboard() const;
 	SDL_Rect GetImageRect() const;
-	SDL_Point ScreenToImagePositionRaw(SDL_Point p) const; // Does not perform rotation/flipping
-	SDL_Point ScreenToImagePosition(SDL_Point p) const; // Performs rotation/flipping
+	SDL_Point ScreenToImagePosition(SDL_Point p) const;
 	SDL_Point ImageToScreenPosition(SDL_Point p) const;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
