@@ -9,6 +9,7 @@
  * Scroll bars.
  * Multiple colour text representations.
  * Copy colour to clipboard.
+ * Fix reset transform for narrow windows.
 */
 
 #include "app.h"
@@ -31,16 +32,19 @@ Copyright (c) 2022 Kevin Lu
 
  Ctrl+O		Open File
  Ctrl+W		Close File
+ Ctrl+R		Reload From Disk
+ Tab		Next Image
+ Shift+Tab		Previous Image
  F1		Help
+ F11		Fullscreen
  0-9		Switch to Image
  Q		Rotate Anti-clockwise
  W		Rotate 180 Degrees
  E		Rotate Clockwise
- R		Reload From Disk
- Z		Reset Zoom
- S		Toggle Sidebar
  F		Flip Horizontal
  V		Flip Vertical
+ S		Toggle Sidebar
+ Z		Reset Zoom
 ==============================
 )";
 
@@ -80,32 +84,49 @@ void App::Update() {
 	UpdateImageLoading();
 
 	if (GetCtrlKeyDown()) {
+		// Open file
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_O)) {
 			ShowOpenFileDialog();
-		} else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
+		}
+		
+		// Close file
+		else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
 			ImageEntity* image = nullptr;
 			if (TryGetCurrentImage(&image)) {
-				CloseFile(image);
+				DeleteImage(&*image);
 			}
 		}
 	} else {
+		// Toggle grid
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
 			gridEnabled = !gridEnabled;
 		}
 
+		// Show help
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F1)) {
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Help", HELP_TEXT, GetWindow());
 		}
 
+		// Toggle fullscreen
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F11)) {
+			fullscreen = !fullscreen;
+			SDL_SetWindowFullscreen(GetWindow(), fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+		}
+
+		// Switch image
 		for (size_t i = 0; i < 10; i++) {
 			if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
 				activeImageIndex = i;
 			}
 		}
-
-		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F11)) {
-			fullscreen = !fullscreen;
-			SDL_SetWindowFullscreen(GetWindow(), fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+		
+		// Next/previous image
+		if (!images.empty() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_TAB)) {
+			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_LSHIFT) || GetKeyPressed(SDL_Scancode::SDL_SCANCODE_RSHIFT)) {
+				activeImageIndex = (activeImageIndex + images.size() - 1) % images.size();
+			} else {
+				activeImageIndex = (activeImageIndex + 1) % images.size();
+			}
 		}
 	}
 	
@@ -211,8 +232,15 @@ void App::UpdateActiveImage() {
 		display.selectTo = { -1, -1 };
 	}
 
-	// Keyboard shortcuts
+	// Reload
+	else if (GetCtrlKeyDown() && GetKeyDown(SDL_Scancode::SDL_SCANCODE_R)) {
+		SDL_DestroyTexture(image->texture);
+		image->texture = nullptr;
+		image->image = Image();
+	}
+	
 	else if (!GetCtrlKeyDown()) {
+		// Reset transform
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Z)) {
 			ResetTransform(*image);
 		}
@@ -231,14 +259,6 @@ void App::UpdateActiveImage() {
 			display.flipVertical = !display.flipVertical;
 		}
 
-		// Rotate anti-clockwise
-		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
-			display.rotation--;
-			if (display.rotation < 0) {
-				display.rotation = 3;
-			}
-		}
-
 		// Rotate clockwise
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_E)) {
 			display.rotation = (display.rotation + 1) % 4;
@@ -249,11 +269,9 @@ void App::UpdateActiveImage() {
 			display.rotation = (display.rotation + 2) % 4;
 		}
 
-		// Reload
-		if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_R)) {
-			SDL_DestroyTexture(image->texture);
-			image->texture = nullptr;
-			image->image = Image();
+		// Rotate anti-clockwise
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_Q)) {
+			display.rotation = (display.rotation + 3) % 4;
 		}
 	}
 
@@ -449,7 +467,7 @@ void App::UpdateImageLoading() {
 		// Check for errors
 		Image img = image.future.get();
 		if (!img.Valid()) {
-			images.erase(images.begin() + i);
+			DeleteImage(images.data() + i);
 			i--;
 			std::string msg = "Cannot load " + image.path
 				+ ".\nReason: " + img.Error() + ".";
@@ -484,25 +502,41 @@ void App::UpdateImageLoading() {
 
 	// Begin loading images that haven't been loaded yet
 	for (auto it = images.begin(); it != images.end(); ++it) {
-		if (activeLoadThreads >= maxLoadThreads)
-			break;
-
-		// Skip if image is already open
-		auto match = [&](const ImageEntity& im) { return im.path == it->path; };
-		if (std::any_of(images.begin(), it, match)) {
-			it = images.erase(it);
-			if (it == images.end())
-				break;
-			continue;
-		}
-		
 		if (!it->texture && !it->future.valid()) {
+			// Skip if image is already open
+			auto match = [&](const ImageEntity& im) { return im.path == it->path; };
+			if (std::any_of(images.begin(), it, match)) {
+				it = DeleteImage(&*it);
+				if (it == images.end())
+					break;
+				continue;
+			}
+
+			if (activeLoadThreads >= maxLoadThreads)
+				break;
+
 			it->future = std::async(std::launch::async, [path = it->path] {
 				return Image(path.c_str());
 				});
 			activeLoadThreads++;
 		}
 	}
+}
+
+std::vector<ImageEntity>::iterator App::DeleteImage(ImageEntity* image) {
+	if (image->future.valid()) {
+		auto heapFuture = new std::future<Image>(std::move(image->future));
+		discardedFutures.push_back(heapFuture);
+	}
+
+	auto it = std::find_if(images.begin(), images.end(), [image](const ImageEntity& im) { return &im == image; });
+	it = images.erase(it);
+
+	if (activeImageIndex > 0 && activeImageIndex >= images.size()) {
+		activeImageIndex = images.size() - 1;
+	}
+	
+	return it;
 }
 
 bool App::MouseOverSidebar() const {
@@ -645,20 +679,6 @@ void App::ShowOpenFileDialog() {
 		| std::views::transform([](auto&& s) { return std::string(s.begin(), s.end()); });
 	for (const auto& path : split) {
 		QueueFileLoad(path);
-	}
-}
-
-void App::CloseFile(ImageEntity* image) {
-	if (!image->texture) {
-		auto heapFuture = new std::future<Image>(std::move(image->future));
-		discardedFutures.push_back(heapFuture);
-	}
-	
-	auto it = std::find_if(images.begin(), images.end(), [image](const ImageEntity& im) { return &im == image; });
-	images.erase(it);
-
-	if (activeImageIndex > 0 && activeImageIndex >= images.size()) {
-		activeImageIndex = images.size() - 1;
 	}
 }
 

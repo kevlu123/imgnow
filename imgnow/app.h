@@ -38,7 +38,7 @@ private:
 	bool TryGetVisibleImage(const ImageEntity** image) const;
 	void QueueFileLoad(std::string path);
 	void ShowOpenFileDialog();
-	void CloseFile(ImageEntity* image);
+	std::vector<ImageEntity>::iterator DeleteImage(ImageEntity* image); // Returns iterator to next image
 	void ResetTransform(ImageEntity& image) const;
 	void CopyToClipboard() const;
 	SDL_Rect GetImageRect() const;
