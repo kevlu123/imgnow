@@ -27,7 +27,7 @@
     <ClCompile Include="window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tinyfiledialogs.c">
+    <ClCompile Include="tinyfiledialogs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -160,7 +160,7 @@
     <ClCompile Include="app.cpp" />
     <ClCompile Include="image.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="tinyfiledialogs.c" />
+    <ClCompile Include="tinyfiledialogs.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
