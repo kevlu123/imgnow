@@ -7,6 +7,7 @@ add_executable(imgnow WIN32
     window.cpp window.h
     app.cpp app.h
     image.cpp image.h
+    config.cpp config.h
     tinyfiledialogs.cpp tinyfiledialogs.h
     stb_image.h
     )

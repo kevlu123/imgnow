@@ -15,7 +15,7 @@ Window::Window(int width, int height) {
 		"",
 		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		width, height,
-		SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
 	if (!window)
 		throw SDLException();
 
@@ -71,6 +71,9 @@ bool Window::ProcessMessages() {
 				break;
 			case SDL_WINDOWEVENT_LEAVE:
 				mouseInWindow = false;
+				break;
+			case SDL_WINDOWEVENT_RESIZED:
+				Resized(ev.window.data1, ev.window.data2);
 				break;
 			}
 			break;
@@ -182,4 +185,7 @@ void Window::Run() {
 }
 
 void Window::Update() {
+}
+
+void Window::Resized(int width, int height) {
 }

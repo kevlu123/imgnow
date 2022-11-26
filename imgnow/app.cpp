@@ -1,7 +1,6 @@
 /*
  * TODO:
  * React to window resize.
- * Configuration file.
  * Add app icon.
  * Reorder files.
  * Scroll bars.
@@ -71,15 +70,40 @@ static SDL_Rect RectFromPoints(const SDL_Point& p, const SDL_Point& q) {
 }
 
 App::App(int argc, char** argv) : Window(1280, 720) {
+	// Load config
+	SDL_Rect windowRc{};
+	if (config.TryGet("window_x", windowRc.x) && config.TryGet("window_y", windowRc.y)) {
+		SDL_SetWindowPosition(GetWindow(), windowRc.x, windowRc.y);
+	}
+	if (config.TryGet("window_w", windowRc.w) && config.TryGet("window_h", windowRc.h)) {
+		SDL_SetWindowSize(GetWindow(), windowRc.w, windowRc.h);
+	}
+	if (config.GetOr("maximized", false)) {
+		SDL_MaximizeWindow(GetWindow());
+	}
+	SDL_ShowWindow(GetWindow());
+	sidebarEnabled = config.GetOr("sidebar_enabled", true);
+
+	// Load images
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
 	for (int i = 1; i < argc; i++) {
 		QueueFileLoad(argv[i]);
 	}
-
-	sidebarEnabled = argc > 2;
 }
 
 App::~App() {
+	// Save config
+	SDL_Rect windowRc{};
+	SDL_GetWindowPosition(GetWindow(), &windowRc.x, &windowRc.y);
+	SDL_GetWindowSize(GetWindow(), &windowRc.w, &windowRc.h);
+	config.Set("window_x", windowRc.x);
+	config.Set("window_y", windowRc.y);
+	config.Set("window_w", windowRc.w);
+	config.Set("window_h", windowRc.h);
+	config.Set("maximized", maximized);
+	config.Set("sidebar_enabled", sidebarEnabled);
+	config.Save();
+
 	SDL_HideWindow(GetWindow());
 	for (auto& image : images) {
 		if (image.texture) {
@@ -146,6 +170,10 @@ void App::Update() {
 	UpdateStatus();
 
 	SDL_RenderPresent(GetRenderer());
+}
+
+void App::Resized(int width, int height) {
+	maximized = (SDL_GetWindowFlags(GetWindow()) & SDL_WINDOW_MAXIMIZED) != 0;
 }
 
 void App::UpdateStatus() const {

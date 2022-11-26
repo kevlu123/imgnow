@@ -2,6 +2,7 @@
 #include "window.h"
 #include <optional>
 #include <string>
+#include "config.h"
 
 struct ImageEntity {
 	std::string path;
@@ -25,6 +26,7 @@ struct App : Window {
 	App(int argc, char** argv);
 	~App();
 	void Update() override;
+	void Resized(int width, int height) override;
 private:
 	void UpdateActiveImage();
 	void UpdateSidebar();
@@ -45,6 +47,7 @@ private:
 	SDL_Point ScreenToImagePosition(SDL_Point p) const;
 	SDL_Point ImageToScreenPosition(SDL_Point p) const;
 	bool RotatedPerpendicular() const;
+	Config config;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;
@@ -56,4 +59,5 @@ private:
 	bool fullscreen = false;
 	int activeLoadThreads = 0;
 	int maxLoadThreads = 1;
+	bool maximized = false;
 };

@@ -20,6 +20,7 @@ struct Window {
 	~Window();
 	void Run();
 	virtual void Update();
+	virtual void Resized(int width, int height);
 	bool GetKeyDown(SDL_Scancode key) const;
 	bool GetKeyPressed(SDL_Scancode key) const;
 	bool GetKeyReleased(SDL_Scancode key) const;
