@@ -6,6 +6,7 @@
  * Scroll bars.
  * Multiple colour text representations.
  * Copy colour to clipboard.
+ * Show alpha
  */
 
 #include "app.h"
@@ -43,6 +44,8 @@ Copyright (c) 2022 Kevin Lu
  V		Flip Vertical
  S		Toggle Sidebar
  Z		Reset Transform
+ K		Switch Colour Format
+ A		Toggle Alpha in Colour Format
 ==============================
 )";
 
@@ -213,7 +216,6 @@ void App::UpdateActiveImage() {
 
 	auto& display = image->display;
 
-	auto [cw, ch] = GetClientSize();
 	auto [mx, my] = GetMousePosition();
 	auto [_, sy] = GetScrollDelta();
 	sy *= GetDeltaTime() * 5;
@@ -430,9 +432,7 @@ void App::UpdateSidebar() {
 
 		// Highlight if cursor is over icon
 		if (MouseOverSidebar()) {
-			SDL_Point mp{};
-			std::tie(mp.x, mp.y) = GetMousePosition();
-
+			SDL_Point mp = GetMousePosition();
 			SDL_Rect hitbox = {
 				sbRc.x,
 				(int)screenY + SIDEBAR_BORDER / 2,
@@ -569,7 +569,7 @@ std::vector<ImageEntity>::iterator App::DeleteImage(ImageEntity* image) {
 }
 
 bool App::MouseOverSidebar() const {
-	return GetMousePosition().first >= GetClientSize().first - SIDEBAR_WIDTH
+	return GetMousePosition().x >= GetClientSize().x - SIDEBAR_WIDTH
 		&& sidebarEnabled
 		&& MouseInWindow();
 }

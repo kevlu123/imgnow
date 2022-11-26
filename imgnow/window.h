@@ -28,11 +28,11 @@ struct Window {
 	bool GetMouseDown(int button) const;
 	bool GetMousePressed(int button) const;
 	bool GetMouseReleased(int button) const;
-	std::pair<float, float> GetScrollDelta() const;
-	std::pair<int, int> GetMousePosition() const;
-	std::pair<int, int> GetMouseDelta() const;
+	SDL_FPoint GetScrollDelta() const;
+	SDL_Point GetMousePosition() const;
+	SDL_Point GetMouseDelta() const;
 	bool MouseInWindow() const;
-	std::pair<int, int> GetClientSize() const;
+	SDL_Point GetClientSize() const;
 	SDL_Window* GetWindow() const;
 	SDL_Renderer* GetRenderer() const;
 	float GetDeltaTime() const;
@@ -45,9 +45,9 @@ private:
 	bool quit = false;
 	std::unordered_map<SDL_Scancode, KeyState> keyStates;
 	std::array<KeyState, 5> mouseStates{};
-	std::pair<float, float> scrollDelta{};
-	std::pair<int, int> mousePosition{};
-	std::pair<int, int> mouseDelta{};
+	SDL_FPoint scrollDelta{};
+	SDL_Point mousePosition{};
+	SDL_Point mouseDelta{};
 	bool mouseInWindow = false;
 	float deltaTime = 0;
 };

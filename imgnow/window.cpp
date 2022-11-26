@@ -55,14 +55,14 @@ bool Window::ProcessMessages() {
 			mouseStates[ev.button.button - 1] = KeyState::Released;
 			break;
 		case SDL_MOUSEWHEEL:
-			scrollDelta.first += ev.wheel.preciseX;
-			scrollDelta.second += ev.wheel.preciseY;
+			scrollDelta.x += ev.wheel.preciseX;
+			scrollDelta.y += ev.wheel.preciseY;
 			break;
 		case SDL_MOUSEMOTION:
-			mousePosition.first = ev.motion.x;
-			mousePosition.second = ev.motion.y;
-			mouseDelta.first += ev.motion.xrel;
-			mouseDelta.second += ev.motion.yrel;
+			mousePosition.x = ev.motion.x;
+			mousePosition.y = ev.motion.y;
+			mouseDelta.x += ev.motion.xrel;
+			mouseDelta.y += ev.motion.yrel;
 			break;
 		case SDL_WINDOWEVENT:
 			switch (ev.window.event) {
@@ -134,15 +134,15 @@ bool Window::GetMouseReleased(int button) const {
 	return mouseStates[button - 1] == KeyState::Released;
 }
 
-std::pair<float, float> Window::GetScrollDelta() const {
+SDL_FPoint Window::GetScrollDelta() const {
 	return scrollDelta;
 }
 
-std::pair<int, int> Window::GetMousePosition() const {
+SDL_Point Window::GetMousePosition() const {
 	return mousePosition;
 }
 
-std::pair<int, int> Window::GetMouseDelta() const {
+SDL_Point Window::GetMouseDelta() const {
 	return mouseDelta;
 }
 
@@ -150,10 +150,10 @@ bool Window::MouseInWindow() const {
 	return mouseInWindow;
 }
 
-std::pair<int, int> Window::GetClientSize() const {
-	int w, h;
-	SDL_GetWindowSize(window, &w, &h);
-	return { w, h };
+SDL_Point Window::GetClientSize() const {
+	SDL_Point p;
+	SDL_GetWindowSize(window, &p.x, &p.y);
+	return p;
 }
 
 SDL_Window* Window::GetWindow() const {
