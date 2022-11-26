@@ -5,6 +5,7 @@
 
 testdata
 /out
+.vscode
 
 # User-specific files
 *.rsuser

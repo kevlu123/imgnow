@@ -468,11 +468,11 @@ void App::UpdateImageLoading() {
 		// Check for errors
 		Image img = image.future.get();
 		if (!img.Valid()) {
-			DeleteImage(images.data() + i);
-			i--;
 			std::string msg = "Cannot load " + image.path
 				+ ".\nReason: " + img.Error() + ".";
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg.c_str(), GetWindow());
+			DeleteImage(images.data() + i);
+			i--;
 			continue;
 		}
 		
@@ -634,7 +634,7 @@ void App::DrawGrid() const {
 	std::vector<SDL_FPoint> points;
 	for (float x = minX; x <= maxX + display.scale / 2; x += display.scale) {
 		points.push_back({ x, minY });
-		points.push_back({ x, (float)maxY });
+		points.push_back({ x, maxY });
 		points.push_back({ x, minY });
 	}
 	for (float y = minY; y <= maxY + display.scale / 2; y += display.scale) {
