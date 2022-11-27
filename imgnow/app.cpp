@@ -14,6 +14,7 @@
 #include <ranges>
 #include <filesystem>
 #include <cmath>
+#include <algorithm>
 #include <cstring> // memcpy
 
 #include "tinyfiledialogs.h"
