@@ -13,7 +13,7 @@ open image files as fast as possible with no fuss.
 ```
 git clone https://github.com/kevlu123/imgnow.git
 cd imgnow
-git submodules update --init --recursive
+git submodule update --init --recursive
 ```
 Then follow one of the following methods:
 
