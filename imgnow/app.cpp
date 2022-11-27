@@ -4,9 +4,7 @@
  * Add app icon.
  * Reorder files.
  * Scroll bars.
- * Multiple colour text representations.
- * Copy colour to clipboard.
- * Show alpha
+ * Show alpha.
  */
 
 #include "app.h"
@@ -86,6 +84,8 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 	}
 	SDL_ShowWindow(GetWindow());
 	sidebarEnabled = config.GetOr("sidebar_enabled", true);
+	colourFormatter.SetFormat(config.GetOr("colour_format", 0));
+	colourFormatter.alphaEnabled = config.GetOr("colour_format_alpha", true);
 
 	// Load images
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
@@ -105,6 +105,8 @@ App::~App() {
 	config.Set("window_h", windowRc.h);
 	config.Set("maximized", maximized);
 	config.Set("sidebar_enabled", sidebarEnabled);
+	config.Set("colour_format", colourFormatter.GetFormat());
+	config.Set("colour_format_alpha", colourFormatter.alphaEnabled);
 	config.Save();
 
 	SDL_HideWindow(GetWindow());
@@ -148,6 +150,16 @@ void App::Update() {
 			SDL_SetWindowFullscreen(GetWindow(), fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 		}
 
+		// Switch colour format
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_K)) {
+			colourFormatter.SwitchFormat();
+		}
+
+		// Toggle colour format alpha
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_A)) {
+			colourFormatter.alphaEnabled = !colourFormatter.alphaEnabled;
+		}
+
 		// Switch image
 		for (size_t i = 0; i < 10; i++) {
 			if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
@@ -186,27 +198,30 @@ void App::UpdateStatus() const {
 		return;
 	}
 	
-	// Mouse position
-	auto [mx, my] = GetMousePosition();
-	SDL_Point offset = ScreenToImagePosition({ mx, my });
-	
-	// Pixel colour
+	SDL_Point offset = ScreenToImagePosition(GetMousePosition());
 	SDL_Rect bounds = { 0, 0, image->image.GetWidth(), image->image.GetHeight() };
-	uint32_t colour = SDL_PointInRect(&offset, &bounds) ? image->image.GetPixel(offset.x, offset.y) : 0x00000000;
-	char hexColour[9]{};
-	for (int i = 0; i < 8; i++) {
-		hexColour[i] = "0123456789ABCDEF"[colour >> (28 - i * 4) & 0xF];
-	}
+	SDL_Colour colour = SDL_PointInRect(&offset, &bounds) ? image->image.GetPixel(offset.x, offset.y) : SDL_Colour{};
 
 	static const std::string SEP = "  |  ";
 	std::string text = "imgnow" + SEP
 		+ image->path + SEP
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
 		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
-		+ "RGBA: " + hexColour + SEP
+		+ colourFormatter.GetLabel() + ": " + colourFormatter.FormatColour(colour) + SEP
 		+ "Channels: " + std::to_string(image->image.GetChannels()) + SEP
 		+ "Zoom: " + std::to_string((int)(image->display.scale * 100)) + "%";
 	SDL_SetWindowTitle(GetWindow(), text.c_str());
+
+	// Copy colour to clipboard
+	if (GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_K)) {
+		if (!clip::set_text(colourFormatter.FormatColour(colour))) {
+			SDL_ShowSimpleMessageBox(
+				SDL_MESSAGEBOX_ERROR,
+				"Clipboard Error",
+				"Failed to copy colour to clipboard.",
+				GetWindow());
+		}
+	}
 }
 
 void App::UpdateActiveImage() {
@@ -899,7 +914,7 @@ void App::CopyToClipboard() const {
 		SDL_ShowSimpleMessageBox(
 			SDL_MESSAGEBOX_ERROR,
 			"Clipboard Error",
-			"Failed to copy image to clipboard",
+			"Failed to copy image to clipboard.",
 			GetWindow());
 	}
 }

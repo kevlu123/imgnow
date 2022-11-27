@@ -36,9 +36,9 @@ int Image::GetChannels() const {
 	return channels;
 }
 
-uint32_t Image::GetPixel(int x, int y) const {
+SDL_Colour Image::GetPixel(int x, int y) const {
 	const uint8_t* pixel = data.get() + (y * width + x) * 4;
-	return (pixel[0] << 24) | (pixel[1] << 16) | (pixel[2] << 8) | pixel[3];
+	return { pixel[0], pixel[1], pixel[2], pixel[3] };
 }
 
 const uint8_t* Image::GetPixels() const {

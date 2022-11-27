@@ -5,6 +5,7 @@
 #include <span>
 #include <tuple>
 #include <memory>
+#include "SDL.h"
 
 struct Image {
 	Image() = default;
@@ -17,7 +18,7 @@ struct Image {
 	int GetHeight() const;
 	float GetAspectRatio() const;
 	int GetChannels() const;
-	uint32_t GetPixel(int x, int y) const;
+	SDL_Colour GetPixel(int x, int y) const;
 	const uint8_t* GetPixels() const;
 	bool Valid() const;
 	const std::string& Error() const;

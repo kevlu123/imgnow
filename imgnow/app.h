@@ -1,8 +1,9 @@
 #pragma once
-#include "window.h"
 #include <optional>
 #include <string>
+#include "window.h"
 #include "config.h"
+#include "colourfmt.h"
 
 struct ImageEntity {
 	std::string path;
@@ -48,6 +49,7 @@ private:
 	SDL_Point ImageToScreenPosition(SDL_Point p) const;
 	bool RotatedPerpendicular() const;
 	Config config;
+	ColourFormatter colourFormatter;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;
