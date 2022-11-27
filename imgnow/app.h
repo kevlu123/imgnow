@@ -30,6 +30,7 @@ struct App : Window {
 	void Resized(int width, int height) override;
 private:
 	void UpdateActiveImage();
+	void DrawAlphaBackground() const;
 	void UpdateSidebar();
 	void DrawGrid() const;
 	void UpdateStatus() const;
@@ -62,4 +63,6 @@ private:
 	int activeLoadThreads = 0;
 	int maxLoadThreads = 1;
 	bool maximized = false;
+	mutable std::vector<SDL_Rect> alphaBgCachedSquares;
+	mutable SDL_Rect alphaBgCachedRect;
 };

@@ -5,6 +5,7 @@
  * Reorder files.
  * Scroll bars.
  * Show alpha.
+ * Clamp panning.
  */
 
 #include "app.h"
@@ -352,13 +353,15 @@ void App::UpdateActiveImage() {
 	}
 
 	// Draw image
+	if (image->image.GetChannels() == 4 && display.animatedRotation == display.rotation) {
+		DrawAlphaBackground();
+	}
 	SDL_Rect dst = {
 		(int)display.x,
 		(int)display.y,
 		(int)(display.scale * image->image.GetWidth()),
 		(int)(display.scale * image->image.GetHeight()),
 	};
-	
 	std::underlying_type_t<SDL_RendererFlip> flip = SDL_RendererFlip::SDL_FLIP_NONE;
 	if (display.flipHorizontal)
 		flip |= SDL_RendererFlip::SDL_FLIP_HORIZONTAL;
@@ -923,4 +926,49 @@ bool App::RotatedPerpendicular() const {
 	const ImageEntity* image = nullptr;
 	TryGetVisibleImage(&image);
 	return image->display.rotation % 2 == 1;
+}
+
+void App::DrawAlphaBackground() const {
+	SDL_Rect rc = GetImageRect();
+
+	rc.x += 1;
+	rc.y += 1;
+	rc.w -= 2;
+	rc.h -= 2;
+
+	if (!SDL_RectEquals(&rc, &alphaBgCachedRect)) {
+		constexpr int SQUARE_SIZE = 8;
+		auto [cw, ch] = GetClientSize();
+		int xmin = std::max(0, rc.x / SQUARE_SIZE * SQUARE_SIZE);
+		int ymin = std::max(0, rc.y / SQUARE_SIZE * SQUARE_SIZE);
+		int xmax = std::min(cw, (rc.x + rc.w) / SQUARE_SIZE * SQUARE_SIZE);
+		int ymax = std::min(ch, (rc.y + rc.h) / SQUARE_SIZE * SQUARE_SIZE);
+
+		std::vector<SDL_Rect> squares;
+		int i = (xmin / SQUARE_SIZE + ymin / SQUARE_SIZE) % 2;
+		for (int y = ymin, yi = i; y <= ymax; y += SQUARE_SIZE, yi++) {
+			for (int x = xmin, xi = 0; x <= xmax; x += SQUARE_SIZE, xi++) {
+				if ((xi + yi) % 2 == 0) {
+					int left = std::max(rc.x, x);
+					int top = std::max(rc.y, y);
+					int right = std::min(x + SQUARE_SIZE, rc.x + rc.w);
+					int bottom = std::min(y + SQUARE_SIZE, rc.y + rc.h);
+					squares.push_back({
+						left,
+						top,
+						right - left,
+						bottom - top,
+						});
+				}
+			}
+		}
+
+		alphaBgCachedRect = rc;
+		alphaBgCachedSquares = std::move(squares);
+	}
+
+	SDL_SetRenderDrawColor(GetRenderer(), 255, 255, 255, 255);
+	SDL_RenderFillRect(GetRenderer(), &rc);
+	SDL_SetRenderDrawColor(GetRenderer(), 191, 191, 191, 255);
+	SDL_RenderFillRects(GetRenderer(), alphaBgCachedSquares.data(), (int)alphaBgCachedSquares.size());
 }
