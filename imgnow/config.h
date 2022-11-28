@@ -12,4 +12,5 @@ struct Config {
 private:
 	std::unordered_map<std::string, int32_t> ints;
 	bool modified = false;
+	std::string filename;
 };

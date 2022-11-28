@@ -1,11 +1,36 @@
 #include "config.h"
 #include <fstream>
 #include <charconv>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 static const char* CONFIG_FILE = "imgnow.ini";
 
+#ifdef _WIN32
+#include <Windows.h>
+static fs::path GetExecutablePath() {
+	wchar_t buffer[MAX_PATH];
+	if (GetModuleFileNameW(nullptr, buffer, MAX_PATH) == 0) {
+		// In case of error, just return the current directory
+		return fs::current_path();
+	}
+	return fs::path(buffer);
+}
+#else
+static fs::path GetExecutablePath() {
+	return fs::canonical("/proc/self/exe");
+}
+#endif
+
 Config::Config() {
-	std::ifstream f(CONFIG_FILE);
+	try {
+		filename = (GetExecutablePath().parent_path() / CONFIG_FILE).string();
+	} catch (fs::filesystem_error&) {
+		filename = CONFIG_FILE;
+	}
+	
+	std::ifstream f(filename);
 	if (!f.is_open())
 		return;
 
@@ -29,7 +54,7 @@ void Config::Save() const {
 	if (!modified)
 		return;
 
-	std::ofstream f(CONFIG_FILE);
+	std::ofstream f(filename);
 	if (!f.is_open())
 		return;
 

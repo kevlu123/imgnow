@@ -4,7 +4,6 @@
  * Add app icon.
  * Reorder files.
  * Scroll bars.
- * Clamp panning.
  */
 
 #include "app.h"
@@ -87,6 +86,7 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 	sidebarEnabled = config.GetOr("sidebar_enabled", true);
 	colourFormatter.SetFormat(config.GetOr("colour_format", 0));
 	colourFormatter.alphaEnabled = config.GetOr("colour_format_alpha", true);
+	scrollSpeed = config.GetOr("scroll_speed", 100);
 
 	// Load images
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
@@ -108,6 +108,7 @@ App::~App() {
 	config.Set("sidebar_enabled", sidebarEnabled);
 	config.Set("colour_format", colourFormatter.GetFormat());
 	config.Set("colour_format_alpha", colourFormatter.alphaEnabled);
+	config.Set("scroll_speed", scrollSpeed);
 	config.Save();
 
 	SDL_HideWindow(GetWindow());
@@ -233,15 +234,14 @@ void App::UpdateActiveImage() {
 	auto& display = image->display;
 
 	auto [mx, my] = GetMousePosition();
-	auto [_, sy] = GetScrollDelta();
-	sy *= GetDeltaTime() * 5;
+	float scroll = GetScrollDelta();
 
 	bool dragged = false;
 
 	// Zoom
-	if (sy && !MouseOverSidebar()) {
+	if (scroll && !MouseOverSidebar()) {
 		float& oldScale = display.scale;
-		float newScale = oldScale + sy * oldScale;
+		float newScale = oldScale + scroll * oldScale * 5;
 		newScale = std::min(newScale, 512.0f);
 		if (newScale > 0) {
 			display.x = (display.x - mx) / oldScale * newScale + mx;
@@ -403,7 +403,7 @@ void App::UpdateActiveImage() {
 
 void App::UpdateSidebar() {
 	auto [cw, ch] = GetClientSize();
-	auto [_, sy] = GetScrollDelta();
+	float scroll = GetScrollDelta();
 
 	// Toggle sidebar
 	if (!GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_S)) {
@@ -483,7 +483,7 @@ void App::UpdateSidebar() {
 
 	// Scroll sidebar
 	if (MouseOverSidebar()) {
-		sidebarScroll -= sy * GetDeltaTime() * 800;
+		sidebarScroll -= scroll * 1000;
 		sidebarScroll = std::clamp(sidebarScroll, 0.0f, y);
 	}
 }
@@ -971,4 +971,9 @@ void App::DrawAlphaBackground() const {
 	SDL_RenderFillRect(GetRenderer(), &rc);
 	SDL_SetRenderDrawColor(GetRenderer(), 191, 191, 191, 255);
 	SDL_RenderFillRects(GetRenderer(), alphaBgCachedSquares.data(), (int)alphaBgCachedSquares.size());
+}
+
+float App::GetScrollDelta() const {
+	auto [_, sy] = Window::GetScrollDelta();
+	return sy * GetDeltaTime() * scrollSpeed / 100;
 }

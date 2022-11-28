@@ -42,6 +42,7 @@ private:
 	bool TryGetVisibleImage(const ImageEntity** image) const;
 	void QueueFileLoad(std::string path);
 	void ShowOpenFileDialog();
+	float GetScrollDelta() const;
 	std::vector<ImageEntity>::iterator DeleteImage(ImageEntity* image); // Returns iterator to next image
 	void ResetTransform(ImageEntity& image) const;
 	void CopyToClipboard() const;
@@ -63,6 +64,7 @@ private:
 	int activeLoadThreads = 0;
 	int maxLoadThreads = 1;
 	bool maximized = false;
+	int scrollSpeed = 1;
 	mutable std::vector<SDL_Rect> alphaBgCachedSquares;
 	mutable SDL_Rect alphaBgCachedRect;
 };
