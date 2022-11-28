@@ -6,7 +6,8 @@
 #include "colourfmt.h"
 
 struct ImageEntity {
-	std::string path;
+	std::string fullPath;
+	std::string name;
 	std::future<Image> future;
 	Image image;
 	SDL_Texture* texture;
@@ -58,6 +59,7 @@ private:
 	std::optional<SDL_Point> dragLocation;
 	float sidebarScroll = 0;
 	bool sidebarEnabled = true;
+	std::optional<int> sidebarDragIndex;
 	float sidebarAnimatedPosition = 1; // Between 0 and 1
 	bool gridEnabled = false;
 	bool fullscreen = false;

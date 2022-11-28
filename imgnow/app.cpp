@@ -17,6 +17,8 @@
 
 #include "tinyfiledialogs.h"
 #include "clip.h"
+
+namespace fs = std::filesystem;
 	
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
@@ -206,7 +208,7 @@ void App::UpdateStatus() const {
 
 	static const std::string SEP = "  |  ";
 	std::string text = "imgnow" + SEP
-		+ image->path + SEP
+		+ image->name + SEP
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
 		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
 		+ colourFormatter.GetLabel() + ": " + colourFormatter.FormatColour(colour) + SEP
@@ -514,7 +516,7 @@ void App::UpdateImageLoading() {
 		// Check for errors
 		Image img = image.future.get();
 		if (!img.Valid()) {
-			std::string msg = "Cannot load " + image.path
+			std::string msg = "Cannot load " + image.fullPath
 				+ ".\nReason: " + img.Error() + ".";
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg.c_str(), GetWindow());
 			DeleteImage(images.data() + i);
@@ -551,7 +553,7 @@ void App::UpdateImageLoading() {
 	for (auto it = images.begin(); it != images.end(); ++it) {
 		if (!it->texture && !it->future.valid()) {
 			// Skip if image is already open
-			auto match = [&](const ImageEntity& im) { return im.path == it->path; };
+			auto match = [&](const ImageEntity& im) { return im.fullPath == it->fullPath; };
 			if (std::any_of(images.begin(), it, match)) {
 				it = DeleteImage(&*it);
 				if (it == images.end())
@@ -562,7 +564,7 @@ void App::UpdateImageLoading() {
 			if (activeLoadThreads >= maxLoadThreads)
 				break;
 
-			it->future = std::async(std::launch::async, [path = it->path] {
+			it->future = std::async(std::launch::async, [path = it->fullPath] {
 				return Image(path.c_str());
 				});
 			activeLoadThreads++;
@@ -694,14 +696,18 @@ void App::DrawGrid() const {
 }
 
 void App::QueueFileLoad(std::string path) {
-	std::error_code ec{};
-	auto canonicalPath = std::filesystem::canonical(path, ec);
-	if (!ec) {
-		path = canonicalPath.string();
-	}
-
 	ImageEntity image{};
-	image.path = std::move(path);
+	
+	try {
+		auto fullPath = fs::canonical(path);
+		image.fullPath = fullPath.string();
+		image.name = fullPath.filename().string();
+	} catch (fs::filesystem_error&) {
+		image.fullPath = path;
+		size_t idx = path.find_last_of("\\/");
+		image.name = idx == std::string::npos ? path : path.substr(idx + 1);
+	}
+	
 	images.push_back(std::move(image));
 }
 
@@ -931,6 +937,7 @@ bool App::RotatedPerpendicular() const {
 void App::DrawAlphaBackground() const {
 	SDL_Rect rc = GetImageRect();
 
+	// Prevent background showing around the edges of the image
 	rc.x += 1;
 	rc.y += 1;
 	rc.w -= 2;
