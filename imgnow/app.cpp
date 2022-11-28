@@ -2,7 +2,6 @@
  * TODO:
  * React to window resize.
  * Add app icon.
- * Scroll bars.
  */
 
 #include "app.h"
@@ -19,8 +18,13 @@
 
 namespace fs = std::filesystem;
 
+constexpr float MAX_ZOOM = 256.0f;
+constexpr float WHEEL_ZOOM_SPEED = 3.0f;
+constexpr float KEYBOARD_ZOOM_SPEED = 0.8f;
+constexpr float PAN_SPEED = 500.0f;
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
+
 static const char* HELP_TEXT = R"(
 imgnow
 Copyright (c) 2022 Kevin Lu
@@ -46,7 +50,7 @@ Z                 -    Reset Transform
 K                 -    Switch Colour Format
 A                 -    Toggle Colour Format Alpha
 
-LMB               -    Pan
+LMB/Arrow Keys    -    Pan
 RMB               -    Select Area
 Scroll/]/[        -    Zoom
 ==================================
@@ -243,25 +247,45 @@ void App::UpdateActiveImage() {
 
 	bool dragged = false;
 
-	// Zoom
-	if (scroll && !MouseOverSidebar()) {
-		float& oldScale = display.scale;
-		float newScale = oldScale + scroll * oldScale * 5;
-		newScale = std::min(newScale, 512.0f);
-		if (newScale > 0) {
-			display.x = (display.x - mx) / oldScale * newScale + mx;
-			display.y = (display.y - my) / oldScale * newScale + my;
-			oldScale = newScale;
+	// Arrow keys pan
+	if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_UP)
+		|| GetKeyDown(SDL_Scancode::SDL_SCANCODE_DOWN)
+		|| GetKeyDown(SDL_Scancode::SDL_SCANCODE_LEFT)
+		|| GetKeyDown(SDL_Scancode::SDL_SCANCODE_RIGHT)) {
+		if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_UP)) {
+			display.y += PAN_SPEED * GetDeltaTime();
+		}
+		if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_DOWN)) {
+			display.y -= PAN_SPEED * GetDeltaTime();
+		}
+		if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_LEFT)) {
+			display.x += PAN_SPEED * GetDeltaTime();
+		}
+		if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_RIGHT)) {
+			display.x -= PAN_SPEED * GetDeltaTime();
 		}
 	}
 
-	// Begin drag
+	// Zoom with keyboard
+	if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_LEFTBRACKET) != GetKeyDown(SDL_Scancode::SDL_SCANCODE_RIGHTBRACKET)) {
+		SDL_Point cs = GetClientSize();
+		SDL_Point centre = { cs.x / 2, cs.y / 2 };
+		float speed = GetKeyDown(SDL_Scancode::SDL_SCANCODE_LEFTBRACKET) ? -1.0f : 1.0f;
+		Zoom(centre, speed * KEYBOARD_ZOOM_SPEED * GetDeltaTime());
+	}
+
+	// Zoom with mouse wheel
+	if (scroll && !MouseOverSidebar()) {
+		Zoom({ mx, my }, WHEEL_ZOOM_SPEED * scroll);
+	}
+
+	// Begin pan
 	else if ((GetMousePressed(SDL_BUTTON_LEFT) || GetMousePressed(SDL_BUTTON_MIDDLE)) && !MouseOverSidebar()) {
 		dragged = true;
 		dragLocation = { mx, my };
 	}
 
-	// Continue drag
+	// Continue pan
 	else if (GetMouseDown(SDL_BUTTON_LEFT) || GetMouseDown(SDL_BUTTON_MIDDLE)) {
 		if (dragLocation) {
 			dragged = true;
@@ -1019,4 +1043,19 @@ void App::DrawAlphaBackground() const {
 float App::GetScrollDelta() const {
 	auto [_, sy] = Window::GetScrollDelta();
 	return sy * GetDeltaTime() * scrollSpeed / 100;
+}
+
+void App::Zoom(SDL_Point pivot, float speed) {
+	ImageEntity* image = nullptr;
+	TryGetVisibleImage(&image);
+	auto& display = image->display;
+
+	float& oldScale = display.scale;
+	float newScale = oldScale + oldScale * speed;
+	newScale = std::min(newScale, MAX_ZOOM);
+	if (newScale > 0) {
+		display.x = (display.x - pivot.x) / oldScale * newScale + pivot.x;
+		display.y = (display.y - pivot.y) / oldScale * newScale + pivot.y;
+		oldScale = newScale;
+	}
 }

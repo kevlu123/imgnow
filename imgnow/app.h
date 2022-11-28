@@ -44,6 +44,7 @@ private:
 	void QueueFileLoad(std::string path);
 	void ShowOpenFileDialog();
 	float GetScrollDelta() const;
+	void Zoom(SDL_Point pivot, float speed);
 	std::vector<ImageEntity>::iterator DeleteImage(ImageEntity* image); // Returns iterator to next image
 	void ResetTransform(ImageEntity& image) const;
 	void CopyToClipboard() const;
