@@ -229,7 +229,6 @@ void App::UpdateStatus() const {
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
 		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
 		+ colourFormatter.GetLabel() + ": " + colourFormatter.FormatColour(colour) + SEP
-		+ "Channels: " + std::to_string(image->image.GetChannels()) + SEP
 		+ "Zoom: " + std::to_string((int)(image->display.scale * 100)) + "%";
 	SDL_SetWindowTitle(GetWindow(), text.c_str());
 
