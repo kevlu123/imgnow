@@ -171,19 +171,21 @@ void App::Update() {
 			colourFormatter.alphaEnabled = !colourFormatter.alphaEnabled;
 		}
 
-		// Switch image
-		for (size_t i = 0; i < 10; i++) {
-			if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
-				activeImageIndex = i;
+		if (!GetMouseDown(SDL_BUTTON_RIGHT)) { // Disable image switching when selecting an area
+			// Switch image
+			for (size_t i = 0; i < 10; i++) {
+				if (GetKeyPressed((SDL_Scancode)(SDL_Scancode::SDL_SCANCODE_1 + i)) && i < images.size()) {
+					activeImageIndex = i;
+				}
 			}
-		}
-		
-		// Next/previous image
-		if (!images.empty() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_TAB)) {
-			if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_LSHIFT) || GetKeyDown(SDL_Scancode::SDL_SCANCODE_RSHIFT)) {
-				activeImageIndex = (activeImageIndex + images.size() - 1) % images.size();
-			} else {
-				activeImageIndex = (activeImageIndex + 1) % images.size();
+
+			// Next/previous image
+			if (!images.empty() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_TAB)) {
+				if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_LSHIFT) || GetKeyDown(SDL_Scancode::SDL_SCANCODE_RSHIFT)) {
+					activeImageIndex = (activeImageIndex + images.size() - 1) % images.size();
+				} else {
+					activeImageIndex = (activeImageIndex + 1) % images.size();
+				}
 			}
 		}
 	}
@@ -657,14 +659,24 @@ bool App::MouseOverSidebar() const {
 bool App::TryGetCurrentImage(ImageEntity** image) {
 	if (images.empty())
 		return false;
-	*image = &images[hoverImageIndex.value_or(activeImageIndex)];
+	if (GetMouseDown(SDL_BUTTON_RIGHT)) {
+		// Do not preview hovered image when selecting an area
+		*image = &images[activeImageIndex];
+	} else {
+		*image = &images[hoverImageIndex.value_or(activeImageIndex)];
+	}
 	return true;
 }
 
 bool App::TryGetCurrentImage(const ImageEntity** image) const {
 	if (images.empty())
 		return false;
-	*image = &images[hoverImageIndex.value_or(activeImageIndex)];
+	if (GetMouseDown(SDL_BUTTON_RIGHT)) {
+		// Do not preview hovered image when selecting an area
+		*image = &images[activeImageIndex];
+	} else {
+		*image = &images[hoverImageIndex.value_or(activeImageIndex)];
+	}
 	return true;
 }
 
