@@ -1,9 +1,3 @@
-/*
- * TODO:
- * React to window resize.
- * Add app icon.
- */
-
 #include "app.h"
 #include <tuple>
 #include <type_traits>
@@ -12,6 +6,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring> // memcpy
+#include "icon.h"
 
 #include "tinyfiledialogs.h"
 #include "clip.h"
@@ -101,6 +96,19 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
 	for (int i = 1; i < argc; i++) {
 		QueueFileLoad(argv[i]);
+	}
+
+	// Set icon
+	SDL_Surface* icon = SDL_CreateRGBSurfaceWithFormatFrom(
+		(void*)ICON_DATA,
+		ICON_WIDTH,
+		ICON_HEIGHT,
+		32,
+		ICON_WIDTH * 4,
+		SDL_PIXELFORMAT_ABGR8888);
+	if (icon) {
+		SDL_SetWindowIcon(GetWindow(), icon);
+		SDL_FreeSurface(icon);
 	}
 }
 
