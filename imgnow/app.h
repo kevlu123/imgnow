@@ -59,7 +59,8 @@ private:
 	std::optional<SDL_Point> dragLocation;
 	float sidebarScroll = 0;
 	bool sidebarEnabled = true;
-	std::optional<int> sidebarDragIndex;
+	std::optional<size_t> reorderFrom;
+	std::optional<size_t> reorderTo;
 	float sidebarAnimatedPosition = 1; // Between 0 and 1
 	bool gridEnabled = false;
 	bool fullscreen = false;

@@ -2,7 +2,6 @@
  * TODO:
  * React to window resize.
  * Add app icon.
- * Reorder files.
  * Scroll bars.
  */
 
@@ -436,6 +435,7 @@ void App::UpdateSidebar() {
 
 	// Mini icons
 	hoverImageIndex = std::nullopt;
+	bool reorderLineDrawn = false;
 	float y = 0;
 	for (size_t i = 0; i < images.size(); i++) {
 		const auto& image = images[i];
@@ -470,6 +470,24 @@ void App::UpdateSidebar() {
 				if (GetMousePressed(SDL_BUTTON_LEFT)) {
 					// Selected a different image
 					activeImageIndex = i;
+					reorderFrom = i;
+				}
+			}
+			
+			// Draw reorder line
+			hitbox.y -= hitbox.h / 2;
+			if (GetMouseDown(SDL_BUTTON_LEFT) && reorderFrom && !reorderLineDrawn && activeImageIndex != i && activeImageIndex + 1 != i) {
+				SDL_SetRenderDrawColor(GetRenderer(), 255, 255, 255, 255);
+				if (SDL_PointInRect(&mp, &hitbox)) {
+					int y = (int)screenY + SIDEBAR_BORDER / 2;
+					SDL_RenderDrawLine(GetRenderer(), rc.x, y, rc.x + rc.w, y);
+					reorderLineDrawn = true;
+					reorderTo = i;
+				} else if (i == images.size() - 1 && mp.y >= hitbox.y + hitbox.h) {
+					int y = (int)screenY + SIDEBAR_BORDER / 2 + hitbox.h;
+					SDL_RenderDrawLine(GetRenderer(), rc.x, y, rc.x + rc.w, y);
+					reorderLineDrawn = true;
+					reorderTo = i + 1;
 				}
 			}
 		}
@@ -485,6 +503,20 @@ void App::UpdateSidebar() {
 		if (i < images.size() - 1) {
 			y += SIDEBAR_BORDER + rc.h;
 		}
+	}
+	
+	// Reorder images
+	if (GetMouseReleased(SDL_BUTTON_LEFT)) {
+		if (reorderTo) {
+			if (reorderTo.value() > reorderFrom.value()) {
+				reorderTo.value()--;
+			}
+			ImageEntity moved = std::move(images[reorderFrom.value()]);
+			images.erase(images.begin() + reorderFrom.value());
+			images.insert(images.begin() + reorderTo.value(), std::move(moved));
+		}
+		reorderFrom = std::nullopt;
+		reorderTo = std::nullopt;
 	}
 
 	// Scroll sidebar
