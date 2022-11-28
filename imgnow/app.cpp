@@ -4,7 +4,6 @@
  * Add app icon.
  * Reorder files.
  * Scroll bars.
- * Show alpha.
  * Clamp panning.
  */
 
@@ -171,7 +170,7 @@ void App::Update() {
 		
 		// Next/previous image
 		if (!images.empty() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_TAB)) {
-			if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_LSHIFT) || GetKeyPressed(SDL_Scancode::SDL_SCANCODE_RSHIFT)) {
+			if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_LSHIFT) || GetKeyDown(SDL_Scancode::SDL_SCANCODE_RSHIFT)) {
 				activeImageIndex = (activeImageIndex + images.size() - 1) % images.size();
 			} else {
 				activeImageIndex = (activeImageIndex + 1) % images.size();
