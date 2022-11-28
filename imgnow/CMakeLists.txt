@@ -19,4 +19,4 @@ target_include_directories(imgnow PRIVATE
     "${PROJECT_SOURCE_DIR}/clip"
     )
 
-target_link_libraries(imgnow SDL3 SDL3main clip)
+target_link_libraries(imgnow SDL3-static SDL3main clip)
