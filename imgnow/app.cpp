@@ -19,34 +19,38 @@
 #include "clip.h"
 
 namespace fs = std::filesystem;
-	
+
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
 static const char* HELP_TEXT = R"(
 imgnow
 Copyright (c) 2022 Kevin Lu
 
-==============================
- Shortcut		Action
+============ Shortcuts ============
+Ctrl+O            -    Open File
+Ctrl+W            -    Close File
+Ctrl+R            -    Reload From Disk
+Ctrl+C            -    Copy Selection
+Ctrl+K            -    Copy Colour
+Tab               -    Next Image
+Shift+Tab         -    Previous Image
+0-9               -    Switch Image
+F1                -    Help
+F11               -    Fullscreen
+Q                 -    Rotate Anti-clockwise
+W                 -    Rotate 180 Degrees
+E                 -    Rotate Clockwise
+F                 -    Flip Horizontally
+V                 -    Flip Vertically
+S                 -    Toggle Sidebar
+Z                 -    Reset Transform
+K                 -    Switch Colour Format
+A                 -    Toggle Colour Format Alpha
 
- Ctrl+O		Open File
- Ctrl+W		Close File
- Ctrl+R		Reload From Disk
- Tab		Next Image
- Shift+Tab		Previous Image
- F1		Help
- F11		Fullscreen
- 0-9		Switch to Image
- Q		Rotate Anti-clockwise
- W		Rotate 180 Degrees
- E		Rotate Clockwise
- F		Flip Horizontal
- V		Flip Vertical
- S		Toggle Sidebar
- Z		Reset Transform
- K		Switch Colour Format
- A		Toggle Alpha in Colour Format
-==============================
+LMB               -    Pan
+RMB               -    Select Area
+Scroll/]/[        -    Zoom
+==================================
 )";
 
 // Since std::future blocks when destroyed, we need to keep it
