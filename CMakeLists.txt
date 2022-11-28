@@ -11,3 +11,5 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_subdirectory(imgnow)
 add_subdirectory(clip)
 add_subdirectory(SDL)
+
+configure_file(clip/LICENSE.txt "${CMAKE_BINARY_DIR}/bin/LICENSE.txt" COPYONLY)

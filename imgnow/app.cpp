@@ -21,8 +21,9 @@ constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
 
 static const char* HELP_TEXT = R"(
-imgnow
-Copyright (c) 2022 Kevin Lu
+imgnow Copyright (c) 2022 Kevin Lu
+clip Copyright (c) 2015-2022 David Capello
+SDL Copyright (c) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
 ============ Shortcuts ============
 Ctrl+O            -    Open File
