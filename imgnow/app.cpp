@@ -75,14 +75,21 @@ static SDL_Rect RectFromPoints(const SDL_Point& p, const SDL_Point& q) {
 	};
 }
 
+SDL_Texture* ImageEntity::GetTexture() const {
+	if (textures.empty()) {
+		return nullptr;
+	} else {
+		return textures[currentTextureIndex];
+	}
+}
+
 App::App(int argc, char** argv) : Window(1280, 720) {
 	// Load config
-	SDL_Rect windowRc{};
-	if (config.TryGet("window_x", windowRc.x) && config.TryGet("window_y", windowRc.y)) {
-		SDL_SetWindowPosition(GetWindow(), windowRc.x, windowRc.y);
+	if (SDL_Point windowPos{}; config.TryGet("window_x", windowPos.x) && config.TryGet("window_y", windowPos.y)) {
+		SDL_SetWindowPosition(GetWindow(), windowPos.x, windowPos.y);
 	}
-	if (config.TryGet("window_w", windowRc.w) && config.TryGet("window_h", windowRc.h)) {
-		SDL_SetWindowSize(GetWindow(), windowRc.w, windowRc.h);
+	if (SDL_Point windowSize{}; config.TryGet("window_w", windowSize.x) && config.TryGet("window_h", windowSize.y)) {
+		SDL_SetWindowSize(GetWindow(), windowSize.x, windowSize.y);
 	}
 	if (config.GetOr("maximized", false)) {
 		SDL_MaximizeWindow(GetWindow());
@@ -115,13 +122,14 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 
 App::~App() {
 	// Save config
-	SDL_Rect windowRc{};
-	SDL_GetWindowPosition(GetWindow(), &windowRc.x, &windowRc.y);
-	SDL_GetWindowSize(GetWindow(), &windowRc.w, &windowRc.h);
-	config.Set("window_x", windowRc.x);
-	config.Set("window_y", windowRc.y);
-	config.Set("window_w", windowRc.w);
-	config.Set("window_h", windowRc.h);
+	if (restoredPos) {
+		config.Set("window_x", restoredPos.value().x);
+		config.Set("window_y", restoredPos.value().y);
+	}
+	if (restoredSize) {
+		config.Set("window_w", restoredSize.value().x);
+		config.Set("window_h", restoredSize.value().y);
+	}
 	config.Set("maximized", maximized);
 	config.Set("sidebar_enabled", sidebarEnabled);
 	config.Set("colour_format", colourFormatter.GetFormat());
@@ -131,13 +139,15 @@ App::~App() {
 
 	SDL_HideWindow(GetWindow());
 	for (auto& image : images) {
-		if (image.texture) {
-			SDL_DestroyTexture(image.texture);
+		for (SDL_Texture* tex : image.textures) {
+			SDL_DestroyTexture(tex);
 		}
 	}
 }
 
 void App::Update() {
+	uint64_t now = SDL_GetTicks64();
+	
 	UpdateImageLoading();
 
 	if (GetCtrlKeyDown()) {
@@ -180,6 +190,15 @@ void App::Update() {
 			colourFormatter.alphaEnabled = !colourFormatter.alphaEnabled;
 		}
 
+		// Pause/unpause gif
+		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_SPACE)) {
+			if (lastPauseTime) {
+				lastPauseTime = std::nullopt;
+			} else {
+				lastPauseTime = now;
+			}
+		}
+
 		if (!GetMouseDown(SDL_BUTTON_RIGHT)) { // Disable image switching when selecting an area
 			// Switch image
 			for (size_t i = 0; i < 10; i++) {
@@ -198,6 +217,24 @@ void App::Update() {
 			}
 		}
 	}
+
+	// Animate gifs
+	if (lastPauseTime) {
+		totalPauseTime += now - lastPauseTime.value();
+		lastPauseTime = now;
+	}
+	for (auto& image : images) {
+		if (image.GetTexture()) {
+			uint64_t delta = (now - image.openTime - totalPauseTime) % image.image.GetGifDuration();
+			for (int i = 0; i < image.image.GetFrameCount(); i++) {
+				if (delta < image.image.GetGifDelay(i)) {
+					image.currentTextureIndex = i;
+					break;
+				}
+				delta -= image.image.GetGifDelay(i);
+			}
+		}
+	}
 	
 	SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
 	SDL_RenderClear(GetRenderer());
@@ -211,6 +248,16 @@ void App::Update() {
 
 void App::Resized(int width, int height) {
 	maximized = (SDL_GetWindowFlags(GetWindow()) & SDL_WINDOW_MAXIMIZED) != 0;
+	if (!maximized && !fullscreen) {
+		restoredSize = { width, height };
+	}
+}
+
+void App::Moved(int x, int y) {
+	maximized = (SDL_GetWindowFlags(GetWindow()) & SDL_WINDOW_MAXIMIZED) != 0;
+	if (!maximized && !fullscreen) {
+		restoredPos = { x, y };
+	}
 }
 
 void App::UpdateStatus() const {
@@ -219,10 +266,13 @@ void App::UpdateStatus() const {
 		SDL_SetWindowTitle(GetWindow(), "imgnow");
 		return;
 	}
-	
+
 	SDL_Point offset = ScreenToImagePosition(GetMousePosition());
 	SDL_Rect bounds = { 0, 0, image->image.GetWidth(), image->image.GetHeight() };
-	SDL_Colour colour = SDL_PointInRect(&offset, &bounds) ? image->image.GetPixel(offset.x, offset.y) : SDL_Colour{};
+	SDL_Colour colour{};
+	if (SDL_PointInRect(&offset, &bounds)) {
+		colour = image->image.GetPixel(offset.x, offset.y, image->currentTextureIndex);
+	}
 
 	static const std::string SEP = " | ";
 	std::string text = "imgnow" + SEP
@@ -330,9 +380,16 @@ void App::UpdateActiveImage() {
 
 	// Reload
 	else if (GetCtrlKeyDown() && GetKeyDown(SDL_Scancode::SDL_SCANCODE_R)) {
-		SDL_DestroyTexture(image->texture);
-		image->texture = nullptr;
+		for (SDL_Texture* tex : image->textures) {
+			SDL_DestroyTexture(tex);
+		}
+		image->textures.clear();
 		image->image = Image();
+	}
+
+	// Copy to clipboard
+	else if (GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_C)) {
+		CopyToClipboard();
 	}
 	
 	else if (!GetCtrlKeyDown()) {
@@ -409,7 +466,7 @@ void App::UpdateActiveImage() {
 
 	SDL_RenderCopyEx(
 		GetRenderer(),
-		image->texture,
+		image->GetTexture(),
 		nullptr,
 		&dst,
 		90 * display.animatedRotation,
@@ -433,10 +490,6 @@ void App::UpdateActiveImage() {
 		SDL_RenderFillRect(GetRenderer(), &dst);
 		SDL_SetRenderDrawColor(GetRenderer(), 200, 200, 200, 200);
 		SDL_RenderDrawRect(GetRenderer(), &dst);
-
-		if (GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_C)) {
-			CopyToClipboard();
-		}
 	}
 }
 
@@ -457,6 +510,10 @@ void App::UpdateSidebar() {
 		sidebarAnimatedPosition = std::lerp(sidebarAnimatedPosition, animationTargetValue, 0.2f);
 	}
 
+	if (sidebarAnimatedPosition == 0.0f) {
+		return;
+	}
+
 	// Draw background
 	SDL_Rect sbRc = {
 		cw - (int)(SIDEBAR_WIDTH * sidebarAnimatedPosition),
@@ -464,7 +521,7 @@ void App::UpdateSidebar() {
 		SIDEBAR_WIDTH,
 		ch
 	};
-	SDL_SetRenderDrawColor(GetRenderer(), 30, 30, 30, 200);
+	SDL_SetRenderDrawColor(GetRenderer(), 40, 40, 40, 200);
 	SDL_RenderFillRect(GetRenderer(), &sbRc);
 
 	// Mini icons
@@ -480,8 +537,8 @@ void App::UpdateSidebar() {
 		rc.x = sbRc.x + SIDEBAR_BORDER;
 		rc.y = (int)screenY + SIDEBAR_BORDER;
 		rc.h = (int)(rc.w / image.image.GetAspectRatio());
-		if (image.texture) {
-			SDL_RenderCopy(GetRenderer(), image.texture, nullptr, &rc);
+		if (image.GetTexture()) {
+			SDL_RenderCopy(GetRenderer(), image.GetTexture(), nullptr, &rc);
 		} else {
 			// Texture hasn't loaded yet so fill with placeholder
 			SDL_SetRenderDrawColor(GetRenderer(), 0, 0, 0, 255);
@@ -594,25 +651,30 @@ void App::UpdateImageLoading() {
 			continue;
 		}
 		
-		// Create surface
-		SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
-			(void*)img.GetPixels(),
-			img.GetWidth(),
-			img.GetHeight(),
-			32,
-			img.GetWidth() * 4,
-			SDL_PixelFormatEnum::SDL_PIXELFORMAT_ABGR8888);
-		if (!surface)
-			throw SDLException();
+		for (size_t n = 0; n < img.GetFrameCount(); n++) {
+			// Create surface
+			SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+				(void*)(img.GetPixels() + (size_t)img.GetWidth() * (size_t)img.GetHeight() * n * 4),
+				img.GetWidth(),
+				img.GetHeight(),
+				32,
+				img.GetWidth() * 4,
+				SDL_PixelFormatEnum::SDL_PIXELFORMAT_ABGR8888);
+			if (!surface)
+				throw SDLException();
 
-		// Create texture
-		SDL_Texture* texture = SDL_CreateTextureFromSurface(GetRenderer(), surface);
-		SDL_FreeSurface(surface);
-		if (!texture)
-			throw SDLException();
+			// Create texture
+			SDL_Texture* texture = SDL_CreateTextureFromSurface(GetRenderer(), surface);
+			SDL_FreeSurface(surface);
+			if (!texture)
+				throw SDLException();
+
+			image.textures.push_back(texture);
+		}
 		
 		image.image = std::move(img);
-		image.texture = texture;
+		image.currentTextureIndex = 0;
+		image.openTime = SDL_GetTicks64();
 
 		ResetTransform(image);
 
@@ -621,7 +683,7 @@ void App::UpdateImageLoading() {
 
 	// Begin loading images that haven't been loaded yet
 	for (auto it = images.begin(); it != images.end(); ++it) {
-		if (!it->texture && !it->future.valid()) {
+		if (!it->GetTexture() && !it->future.valid()) {
 			// Skip if image is already open
 			auto match = [&](const ImageEntity& im) { return im.fullPath == it->fullPath; };
 			if (std::any_of(images.begin(), it, match)) {
@@ -648,6 +710,11 @@ std::vector<ImageEntity>::iterator App::DeleteImage(ImageEntity* image) {
 		discardedFutures.push_back(heapFuture);
 	}
 
+	for (auto texture : image->textures) {
+		SDL_DestroyTexture(texture);
+	}
+	image->textures.clear();
+
 	auto it = std::find_if(images.begin(), images.end(), [image](const ImageEntity& im) { return &im == image; });
 	it = images.erase(it);
 
@@ -664,36 +731,35 @@ bool App::MouseOverSidebar() const {
 		&& MouseInWindow();
 }
 
+size_t App::GetCurrentImageIndex() const {
+	if (GetMouseDown(SDL_BUTTON_RIGHT)) {
+		// Do not preview hovered image when selecting an area
+		return activeImageIndex;
+	} else {
+		return hoverImageIndex.value_or(activeImageIndex);
+	}
+}
+
 bool App::TryGetCurrentImage(ImageEntity** image) {
 	if (images.empty())
 		return false;
-	if (GetMouseDown(SDL_BUTTON_RIGHT)) {
-		// Do not preview hovered image when selecting an area
-		*image = &images[activeImageIndex];
-	} else {
-		*image = &images[hoverImageIndex.value_or(activeImageIndex)];
-	}
+	*image = &images[GetCurrentImageIndex()];
 	return true;
 }
 
 bool App::TryGetCurrentImage(const ImageEntity** image) const {
 	if (images.empty())
 		return false;
-	if (GetMouseDown(SDL_BUTTON_RIGHT)) {
-		// Do not preview hovered image when selecting an area
-		*image = &images[activeImageIndex];
-	} else {
-		*image = &images[hoverImageIndex.value_or(activeImageIndex)];
-	}
+	*image = &images[GetCurrentImageIndex()];
 	return true;
 }
 
 bool App::TryGetVisibleImage(ImageEntity** image) {
-	return TryGetCurrentImage(image) && (*image)->texture;
+	return TryGetCurrentImage(image) && (*image)->GetTexture();
 }
 
 bool App::TryGetVisibleImage(const ImageEntity** image) const {
-	return TryGetCurrentImage(image) && (*image)->texture;
+	return TryGetCurrentImage(image) && (*image)->GetTexture();
 }
 
 void App::ResetTransform(ImageEntity& image) const {
@@ -775,7 +841,7 @@ void App::DrawGrid() const {
 	SDL_RenderDrawLinesF(GetRenderer(), points.data(), (int)points.size());
 }
 
-void App::QueueFileLoad(std::string path) {
+void App::QueueFileLoad(std::string path, size_t index) {
 	ImageEntity image{};
 	
 	try {
@@ -788,7 +854,11 @@ void App::QueueFileLoad(std::string path) {
 		image.name = idx == std::string::npos ? path : path.substr(idx + 1);
 	}
 	
-	images.push_back(std::move(image));
+	if (index == (size_t)-1) {
+		images.push_back(std::move(image));
+	} else {
+		images.insert(images.begin() + index, std::move(image));
+	}
 }
 
 void App::ShowOpenFileDialog() {
@@ -920,15 +990,21 @@ void App::CopyToClipboard() const {
 	TryGetVisibleImage(&image);
 	const auto& display = image->display;
 
-	SDL_Rect rect = {
-		std::min(display.selectFrom.x, display.selectTo.x),
-		std::min(display.selectFrom.y, display.selectTo.y),
-		std::abs(display.selectFrom.x - display.selectTo.x) + 1,
-		std::abs(display.selectFrom.y - display.selectTo.y) + 1,
-	};
+	SDL_Rect rect{};
+	if (display.selectFrom.x != -1 && display.selectTo.x != -1) {
+		rect = SDL_Rect{
+			std::min(display.selectFrom.x, display.selectTo.x),
+			std::min(display.selectFrom.y, display.selectTo.y),
+			std::abs(display.selectFrom.x - display.selectTo.x) + 1,
+			std::abs(display.selectFrom.y - display.selectTo.y) + 1,
+		};
+	} else {
+		rect = { 0, 0, image->image.GetWidth(), image->image.GetHeight() };
+	}
 	
 	std::vector<uint8_t> data;
-	const uint8_t* fullImage = image->image.GetPixels();
+	const uint8_t* fullImage = image->image.GetPixels()
+		+ image->currentTextureIndex * image->image.GetWidth() * image->image.GetHeight() * 4;
 	for (int dy = 0; dy < rect.h; dy++) {
 		const uint8_t* p = fullImage + 4 * (image->image.GetWidth() * (rect.y + dy) + rect.x);
 		data.insert(data.end(), p, p + 4 * rect.w);

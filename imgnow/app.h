@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 #include <string>
+#include <vector>
 #include "window.h"
 #include "config.h"
 #include "colourfmt.h"
@@ -10,7 +11,9 @@ struct ImageEntity {
 	std::string name;
 	std::future<Image> future;
 	Image image;
-	SDL_Texture* texture;
+	size_t currentTextureIndex = 0;
+	std::vector<SDL_Texture*> textures;
+	uint64_t openTime = 0; // Milliseconds since SDL startup
 	struct {
 		float x = 0;
 		float y = 0;
@@ -22,6 +25,7 @@ struct ImageEntity {
 		SDL_Point selectFrom = { -1, -1 };
 		SDL_Point selectTo = { -1, -1 };
 	} display;
+	SDL_Texture* GetTexture() const;
 };
 
 struct App : Window {
@@ -29,6 +33,7 @@ struct App : Window {
 	~App();
 	void Update() override;
 	void Resized(int width, int height) override;
+	void Moved(int x, int y) override;
 	void FileDropped(const char* path) override;
 private:
 	void UpdateActiveImage();
@@ -42,7 +47,7 @@ private:
 	bool TryGetCurrentImage(const ImageEntity** image) const;
 	bool TryGetVisibleImage(ImageEntity** image);
 	bool TryGetVisibleImage(const ImageEntity** image) const;
-	void QueueFileLoad(std::string path);
+	void QueueFileLoad(std::string path, size_t index = (size_t)-1);
 	void ShowOpenFileDialog();
 	float GetScrollDelta() const;
 	void Zoom(SDL_Point pivot, float speed);
@@ -53,6 +58,7 @@ private:
 	SDL_Point ScreenToImagePosition(SDL_Point p) const;
 	SDL_Point ImageToScreenPosition(SDL_Point p) const;
 	bool RotatedPerpendicular() const;
+	size_t GetCurrentImageIndex() const;
 	Config config;
 	ColourFormatter colourFormatter;
 	std::vector<ImageEntity> images;
@@ -70,6 +76,10 @@ private:
 	int maxLoadThreads = 1;
 	bool maximized = false;
 	int scrollSpeed = 1;
+	uint64_t totalPauseTime = 0;
+	std::optional<SDL_Point> restoredPos{};
+	std::optional<SDL_Point> restoredSize{};
+	std::optional<uint64_t> lastPauseTime;
 	mutable std::vector<SDL_Rect> alphaBgCachedSquares;
 	mutable SDL_Rect alphaBgCachedRect;
 };

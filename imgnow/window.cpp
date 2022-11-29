@@ -79,6 +79,9 @@ bool Window::ProcessMessages() {
 			case SDL_WINDOWEVENT_RESIZED:
 				Resized(ev.window.data1, ev.window.data2);
 				break;
+			case SDL_WINDOWEVENT_MOVED:
+				Moved(ev.window.data1, ev.window.data2);
+				break;
 			}
 			break;
 		}
@@ -192,6 +195,9 @@ void Window::Update() {
 }
 
 void Window::Resized(int width, int height) {
+}
+
+void Window::Moved(int x, int y) {
 }
 
 void Window::FileDropped(const char* path) {

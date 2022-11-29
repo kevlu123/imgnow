@@ -20,6 +20,7 @@ struct Window {
 	~Window();
 	void Run();
 	virtual void Update();
+	virtual void Moved(int x, int y);
 	virtual void Resized(int width, int height);
 	virtual void FileDropped(const char* path);
 	bool GetKeyDown(SDL_Scancode key) const;
