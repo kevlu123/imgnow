@@ -6,6 +6,8 @@
 
 Image::Image(const char* path) {
 	// Try to read as gif
+	// Note: This uses stbi__XXX functions which are not part of the public API.
+	// This is much cleaner than reading the file manually and using stbi_load_gif_from_memory.
 	bool isGif = false;
 	if (FILE* f = stbi__fopen(path, "rb")) {
 		stbi__context s{};
