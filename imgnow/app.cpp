@@ -31,6 +31,7 @@ Ctrl+W            -    Close File
 Ctrl+R            -    Reload From Disk
 Ctrl+C            -    Copy Selection
 Ctrl+K            -    Copy Colour
+Space             -    Pause GIF
 Tab               -    Next Image
 Shift+Tab         -    Previous Image
 0-9               -    Switch Image
