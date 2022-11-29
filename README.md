@@ -9,6 +9,18 @@ open image files as fast as possible with no fuss.
 - Copy section to clipboard.
 - Copy colour in multiple formats.
 
+# Supported formats
+- JPEG
+- PNG
+- BMP
+- Animated GIF
+- TGA
+- HDR
+- PSD
+- PIC
+- PGM
+- PPM
+
 # Building
 ```
 git clone https://github.com/kevlu123/imgnow.git
