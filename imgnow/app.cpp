@@ -678,6 +678,16 @@ void App::UpdateImageLoading() {
 		image.image = std::move(img);
 		image.currentTextureIndex = 0;
 		image.openTime = SDL_GetTicks64();
+		
+		// If the image was reloaded, it might have a selection area
+		// outside the image's bounds.
+		SDL_Rect bounds = { 0, 0, (int)image.image.GetWidth() - 1, (int)image.image.GetHeight() - 1 };
+		if (image.display.selectTo.x != -1) {
+			image.display.selectTo = ClampPoint(image.display.selectTo, bounds);
+		}
+		if (image.display.selectFrom.x != -1) {
+			image.display.selectFrom = ClampPoint(image.display.selectFrom, bounds);
+		}
 
 		ResetTransform(image);
 
