@@ -9,12 +9,14 @@ add_executable(imgnow WIN32
     image.cpp image.h
     config.cpp config.h
     colourfmt.cpp colourfmt.h
-    icon.cpp icon.h
     tinyfiledialogs.cpp tinyfiledialogs.h
     stb_image.h
+    "${PROJECT_SOURCE_DIR}/icon/icon.cpp" "${PROJECT_SOURCE_DIR}/icon/icon.h"
+    "${PROJECT_SOURCE_DIR}/icon/icon.rc"
     )
-
+	
 target_include_directories(imgnow PRIVATE
+    "${PROJECT_SOURCE_DIR}/icon"
     "${PROJECT_SOURCE_DIR}/SDL/include"
     "${PROJECT_SOURCE_DIR}/clip"
     )

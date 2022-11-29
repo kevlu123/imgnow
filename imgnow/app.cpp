@@ -106,6 +106,7 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 		QueueFileLoad(argv[i]);
 	}
 
+#ifndef _WIN32 // Windows uses .rc file instead
 	// Set icon
 	SDL_Surface* icon = SDL_CreateRGBSurfaceWithFormatFrom(
 		(void*)ICON_DATA,
@@ -118,6 +119,7 @@ App::App(int argc, char** argv) : Window(1280, 720) {
 		SDL_SetWindowIcon(GetWindow(), icon);
 		SDL_FreeSurface(icon);
 	}
+#endif
 }
 
 App::~App() {

@@ -158,7 +158,7 @@ bool Window::MouseInWindow() const {
 }
 
 SDL_Point Window::GetClientSize() const {
-	SDL_Point p;
+	SDL_Point p{};
 	SDL_GetWindowSize(window, &p.x, &p.y);
 	return p;
 }
