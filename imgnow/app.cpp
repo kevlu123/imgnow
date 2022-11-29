@@ -224,7 +224,7 @@ void App::UpdateStatus() const {
 	SDL_Rect bounds = { 0, 0, image->image.GetWidth(), image->image.GetHeight() };
 	SDL_Colour colour = SDL_PointInRect(&offset, &bounds) ? image->image.GetPixel(offset.x, offset.y) : SDL_Colour{};
 
-	static const std::string SEP = "  |  ";
+	static const std::string SEP = " | ";
 	std::string text = "imgnow" + SEP
 		+ image->name + SEP
 		+ "Dim: " + std::to_string(image->image.GetWidth()) + "x" + std::to_string(image->image.GetHeight()) + SEP
@@ -1078,4 +1078,8 @@ void App::Zoom(SDL_Point pivot, float speed) {
 		display.y = (display.y - pivot.y) / oldScale * newScale + pivot.y;
 		oldScale = newScale;
 	}
+}
+
+void App::FileDropped(const char* path) {
+	QueueFileLoad(path);
 }

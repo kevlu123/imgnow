@@ -64,6 +64,10 @@ bool Window::ProcessMessages() {
 			mouseDelta.x += ev.motion.xrel;
 			mouseDelta.y += ev.motion.yrel;
 			break;
+		case SDL_DROPFILE:
+			FileDropped(ev.drop.file);
+			SDL_free(ev.drop.file);
+			break;
 		case SDL_WINDOWEVENT:
 			switch (ev.window.event) {
 			case SDL_WINDOWEVENT_ENTER:
@@ -188,4 +192,7 @@ void Window::Update() {
 }
 
 void Window::Resized(int width, int height) {
+}
+
+void Window::FileDropped(const char* path) {
 }

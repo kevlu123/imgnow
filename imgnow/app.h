@@ -29,6 +29,7 @@ struct App : Window {
 	~App();
 	void Update() override;
 	void Resized(int width, int height) override;
+	void FileDropped(const char* path) override;
 private:
 	void UpdateActiveImage();
 	void DrawAlphaBackground() const;
