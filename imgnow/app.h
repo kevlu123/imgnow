@@ -36,6 +36,7 @@ struct App : Window {
 	void Moved(int x, int y) override;
 	void FileDropped(const char* path) override;
 private:
+	void SetWindowTitle(const char* title) const;
 	void UpdateActiveImage();
 	void DrawAlphaBackground() const;
 	void UpdateSidebar();
@@ -82,4 +83,5 @@ private:
 	std::optional<uint64_t> lastPauseTime;
 	mutable std::vector<SDL_Rect> alphaBgCachedSquares;
 	mutable SDL_Rect alphaBgCachedRect;
+	mutable std::string titleText;
 };

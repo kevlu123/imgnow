@@ -263,10 +263,17 @@ void App::Moved(int x, int y) {
 	}
 }
 
+void App::SetWindowTitle(const char* title) const {
+	if (titleText != title) {
+		SDL_SetWindowTitle(GetWindow(), title);
+		titleText = title;
+	}
+}
+
 void App::UpdateStatus() const {
 	const ImageEntity* image = nullptr;
 	if (!TryGetVisibleImage(&image)) {
-		SDL_SetWindowTitle(GetWindow(), "imgnow");
+		SetWindowTitle("imgnow");
 		return;
 	}
 
@@ -284,7 +291,7 @@ void App::UpdateStatus() const {
 		+ "XY: (" + std::to_string(offset.x) + ", " + std::to_string(offset.y) + ")" + SEP
 		+ colourFormatter.GetLabel() + ": " + colourFormatter.FormatColour(colour) + SEP
 		+ "Zoom: " + std::to_string((int)(image->display.scale * 100)) + "%";
-	SDL_SetWindowTitle(GetWindow(), text.c_str());
+	SetWindowTitle(text.c_str());
 
 	// Copy colour to clipboard
 	if (GetCtrlKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_K)) {
