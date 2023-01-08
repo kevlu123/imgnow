@@ -889,6 +889,12 @@ void App::ShowOpenFileDialog() {
 		"*.hdr", "*.psd",
 		"*.pic", "*.pgm",
 		"*.ppm",
+		"*.JPEG", "*.JPG",
+		"*.PNG", "*.BMP",
+		"*.TGA", "*.GIF",
+		"*.HDR", "*.PSD",
+		"*.PIC", "*.PGM",
+		"*.PPM",
 	};
 	const char* paths = tinyfd_openFileDialog(
 		"Open File",
