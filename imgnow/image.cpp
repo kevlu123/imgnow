@@ -56,6 +56,7 @@ Image::Image(const char* path) {
 	for (int dur : delays) {
 		duration += dur;
 	}
+	duration = std::max(1, duration);
 }
 
 int Image::GetWidth() const {
