@@ -5,6 +5,7 @@
 #include "window.h"
 #include "config.h"
 #include "colourfmt.h"
+#include "net.h"
 
 struct ImageEntity {
 	std::string fullPath;
@@ -29,7 +30,7 @@ struct ImageEntity {
 };
 
 struct App : Window {
-	App(int argc, char** argv);
+	App(int argc, char** argv, Config config, std::unique_ptr<MessageServer> msgServer);
 	~App();
 	void Update() override;
 	void Resized(int width, int height) override;
@@ -61,6 +62,7 @@ private:
 	bool RotatedPerpendicular() const;
 	size_t GetCurrentImageIndex() const;
 	Config config;
+	std::unique_ptr<MessageServer> msgServer;
 	ColourFormatter colourFormatter;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;

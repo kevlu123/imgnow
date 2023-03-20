@@ -84,7 +84,11 @@ SDL_Texture* ImageEntity::GetTexture() const {
 	}
 }
 
-App::App(int argc, char** argv) : Window(1280, 720) {
+App::App(int argc, char** argv, Config config, std::unique_ptr<MessageServer> msgServer) :
+	Window(1280, 720),
+	config(std::move(config)),
+	msgServer(std::move(msgServer))
+{
 	// Load config
 	if (SDL_Point windowPos{}; config.TryGet("window_x", windowPos.x) && config.TryGet("window_y", windowPos.y)) {
 		SDL_SetWindowPosition(GetWindow(), windowPos.x, windowPos.y);
@@ -628,6 +632,13 @@ void App::UpdateSidebar() {
 }
 
 void App::UpdateImageLoading() {
+	// Check messages from network
+	if (msgServer) {
+		for (const auto& msg : msgServer->GetMessages()) {
+			QueueFileLoad(msg);
+		}
+	}
+
 	// Check if any discarded futures have finished loading
 	for (auto it = discardedFutures.begin(); it != discardedFutures.end(); ++it) {
 		if ((*it)->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {

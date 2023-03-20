@@ -9,6 +9,7 @@ add_executable(imgnow WIN32
     image.cpp image.h
     config.cpp config.h
     colourfmt.cpp colourfmt.h
+    net.cpp net.h
     tinyfiledialogs.cpp tinyfiledialogs.h
     stb_image.h
     "${PROJECT_SOURCE_DIR}/icon/icon.cpp" "${PROJECT_SOURCE_DIR}/icon/icon.h"
@@ -22,4 +23,4 @@ target_include_directories(imgnow PRIVATE
     "${PROJECT_SOURCE_DIR}/clip"
     )
 
-target_link_libraries(imgnow SDL2-static SDL2main clip)
+target_link_libraries(imgnow SDL2-static SDL2main SDL2_net::SDL2_net-static clip)
