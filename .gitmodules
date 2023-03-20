@@ -4,3 +4,6 @@
 [submodule "clip"]
 	path = clip
 	url = https://github.com/dacap/clip.git
+[submodule "SDL_net"]
+	path = SDL_net
+	url = https://github.com/libsdl-org/SDL_net.git

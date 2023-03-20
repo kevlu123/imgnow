@@ -15,4 +15,7 @@ option(SDL_SHARED "" OFF)
 option(SDL_STATIC "" ON)
 add_subdirectory(SDL)
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build SDL2_net as a static library" FORCE)
+add_subdirectory(SDL_net)
+
 configure_file(clip/LICENSE.txt "${CMAKE_BINARY_DIR}/bin/LICENSE.txt" COPYONLY)
