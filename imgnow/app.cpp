@@ -20,10 +20,11 @@ constexpr float PAN_SPEED = 500.0f;
 constexpr int SIDEBAR_WIDTH = 100;
 constexpr int SIDEBAR_BORDER = SIDEBAR_WIDTH / 10;
 
-static const char* HELP_TEXT = R"(
-imgnow Copyright (c) 2022 Kevin Lu
-clip Copyright (c) 2015-2022 David Capello
-SDL Copyright (c) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+static const char* const HELP_TITLE = "imgnow v1.0.0 Help";
+static const char* const HELP_TEXT = R"(
+imgnow Copyright (c) 2022-2023 Kevin Lu
+clip Copyright (c) 2015-2023 David Capello
+SDL/SDL_net Copyright (c) 1997-2023 Sam Lantinga <slouken@libsdl.org>
 
 ============ Shortcuts ============
 Ctrl+O            -    Open File
@@ -42,14 +43,16 @@ W                 -    Rotate 180 Degrees
 E                 -    Rotate Clockwise
 F                 -    Flip Horizontally
 V                 -    Flip Vertically
-S                 -    Toggle Sidebar
 Z                 -    Reset Transform
+G                 -    Toggle Grid
+S                 -    Toggle Sidebar
 K                 -    Switch Colour Format
 A                 -    Toggle Colour Format Alpha
 
 LMB/Arrow Keys    -    Pan
-RMB               -    Select Area
 Scroll/]/[        -    Zoom
+RMB               -    Select Area
+Escape            -    Deselect Area
 ==================================
 )";
 
@@ -178,7 +181,7 @@ void App::Update() {
 
 		// Show help
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_F1)) {
-			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Help", HELP_TEXT, GetWindow());
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, HELP_TITLE, HELP_TEXT, GetWindow());
 		}
 
 		// Toggle fullscreen
