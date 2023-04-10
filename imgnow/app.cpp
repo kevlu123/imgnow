@@ -168,9 +168,15 @@ void App::Update() {
 		
 		// Close file
 		else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_W)) {
-			ImageEntity* image = nullptr;
-			if (TryGetCurrentImage(&image)) {
-				DeleteImage(&*image);
+			if (images.empty()) {
+				SDL_Event quitEvent{};
+				quitEvent.type = SDL_QUIT;
+				SDL_PushEvent(&quitEvent);
+			} else {
+				ImageEntity* image = nullptr;
+				if (TryGetCurrentImage(&image)) {
+					DeleteImage(&*image);
+				}
 			}
 		}
 	} else {
