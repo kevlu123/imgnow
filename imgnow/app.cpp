@@ -32,7 +32,7 @@ Ctrl+W            -    Close File
 Ctrl+R            -    Reload From Disk
 Ctrl+C            -    Copy Selection
 Ctrl+K            -    Copy Colour
-Ctrl+Shift+T      -    Reopen closed file
+Ctrl+Shift+T      -    Reopen Closed File
 Space             -    Pause GIF
 Tab               -    Next Image
 Shift+Tab         -    Previous Image
@@ -49,6 +49,7 @@ G                 -    Toggle Grid
 S                 -    Toggle Sidebar
 K                 -    Switch Colour Format
 A                 -    Toggle Colour Format Alpha
+P                 -    Toggle Antialiasing
 
 LMB/Arrow Keys    -    Pan
 Scroll/]/[        -    Zoom
@@ -108,6 +109,9 @@ App::App(int argc, char** argv, Config cfg, std::unique_ptr<MessageServer> msgSe
 	colourFormatter.SetFormat(config.GetOr("colour_format", 0));
 	colourFormatter.alphaEnabled = config.GetOr("colour_format_alpha", true);
 	scrollSpeed = config.GetOr("scroll_speed", 100);
+	
+	antialiasing = config.GetOr("antialiasing", true);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, antialiasing ? "2" : "0");
 
 	// Load images
 	maxLoadThreads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
@@ -146,6 +150,7 @@ App::~App() {
 	config.Set("colour_format", colourFormatter.GetFormat());
 	config.Set("colour_format_alpha", colourFormatter.alphaEnabled);
 	config.Set("scroll_speed", scrollSpeed);
+	config.Set("antialiasing", antialiasing);
 	config.Save();
 
 	SDL_HideWindow(GetWindow());
@@ -188,7 +193,7 @@ void App::Update() {
 			QueueFileLoad(std::move(openFileHistory.top()));
 			openFileHistory.pop();
 		}
-	} else {
+	} else {		
 		// Toggle grid
 		if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_G)) {
 			gridEnabled = !gridEnabled;
@@ -412,11 +417,16 @@ void App::UpdateActiveImage() {
 
 	// Reload
 	else if (GetCtrlKeyDown() && GetKeyDown(SDL_Scancode::SDL_SCANCODE_R)) {
-		for (SDL_Texture* tex : image->textures) {
-			SDL_DestroyTexture(tex);
+		ReloadImage(*image);
+	}
+
+	// Toggle antialiasing
+	else if (GetKeyPressed(SDL_Scancode::SDL_SCANCODE_P)) {
+		antialiasing = !antialiasing;
+		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, antialiasing ? "2" : "0");
+		for (auto& image : images) {
+			ReloadImage(image);
 		}
-		image->textures.clear();
-		image->image = Image();
 	}
 
 	// Copy to clipboard
@@ -725,9 +735,11 @@ void App::UpdateImageLoading() {
 			image.display.selectFrom = ClampPoint(image.display.selectFrom, bounds);
 		}
 
-		ResetTransform(image);
+		if (!image.wasReloaded) {
+			ResetTransform(image);
 
-		activeImageIndex = i;
+			activeImageIndex = i;
+		}
 	}
 
 	// Begin loading images that haven't been loaded yet
@@ -1213,4 +1225,13 @@ void App::Zoom(SDL_Point pivot, float speed) {
 
 void App::FileDropped(const char* path) {
 	QueueFileLoad(path);
+}
+
+void App::ReloadImage(ImageEntity& image) {
+	for (SDL_Texture* tex : image.textures) {
+		SDL_DestroyTexture(tex);
+	}
+	image.textures.clear();
+	image.image = Image();
+	image.wasReloaded = true;
 }

@@ -16,6 +16,7 @@ struct ImageEntity {
 	size_t currentTextureIndex = 0;
 	std::vector<SDL_Texture*> textures;
 	uint64_t openTime = 0; // Milliseconds since SDL startup
+	bool wasReloaded = false;
 	struct {
 		float x = 0;
 		float y = 0;
@@ -62,6 +63,7 @@ private:
 	SDL_Point ImageToScreenPosition(SDL_Point p) const;
 	bool RotatedPerpendicular() const;
 	size_t GetCurrentImageIndex() const;
+	void ReloadImage(ImageEntity& image);
 	Config config;
 	std::unique_ptr<MessageServer> msgServer;
 	ColourFormatter colourFormatter;
@@ -82,6 +84,7 @@ private:
 	bool maximized = false;
 	int scrollSpeed = 1;
 	uint64_t totalPauseTime = 0;
+	bool antialiasing;
 	std::optional<SDL_Point> restoredPos{};
 	std::optional<SDL_Point> restoredSize{};
 	std::optional<uint64_t> lastPauseTime;
