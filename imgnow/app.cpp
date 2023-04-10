@@ -84,9 +84,9 @@ SDL_Texture* ImageEntity::GetTexture() const {
 	}
 }
 
-App::App(int argc, char** argv, Config config, std::unique_ptr<MessageServer> msgServer) :
+App::App(int argc, char** argv, Config cfg, std::unique_ptr<MessageServer> msgServer) :
 	Window(1280, 720),
-	config(std::move(config)),
+	config(std::move(cfg)),
 	msgServer(std::move(msgServer))
 {
 	// Load config
