@@ -2,6 +2,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <stack>
 #include "window.h"
 #include "config.h"
 #include "colourfmt.h"
@@ -64,6 +65,7 @@ private:
 	Config config;
 	std::unique_ptr<MessageServer> msgServer;
 	ColourFormatter colourFormatter;
+	std::stack<std::string> openFileHistory;
 	std::vector<ImageEntity> images;
 	size_t activeImageIndex = 0;
 	std::optional<size_t> hoverImageIndex = 0;

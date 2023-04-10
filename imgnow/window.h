@@ -27,6 +27,7 @@ struct Window {
 	bool GetKeyPressed(SDL_Scancode key) const;
 	bool GetKeyReleased(SDL_Scancode key) const;
 	bool GetCtrlKeyDown() const;
+	bool GetShiftKeyDown() const;
 	bool GetMouseDown(int button) const;
 	bool GetMousePressed(int button) const;
 	bool GetMouseReleased(int button) const;

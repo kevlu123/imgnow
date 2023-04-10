@@ -129,6 +129,11 @@ bool Window::GetCtrlKeyDown() const {
 		|| GetKeyDown(SDL_Scancode::SDL_SCANCODE_RCTRL);
 }
 
+bool Window::GetShiftKeyDown() const {
+	return GetKeyDown(SDL_Scancode::SDL_SCANCODE_LSHIFT)
+		|| GetKeyDown(SDL_Scancode::SDL_SCANCODE_RSHIFT);
+}
+
 bool Window::GetMouseDown(int button) const {
 	return mouseStates[button - 1] == KeyState::Down || mouseStates[button - 1] == KeyState::Pressed;
 }

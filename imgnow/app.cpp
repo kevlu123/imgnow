@@ -32,6 +32,7 @@ Ctrl+W            -    Close File
 Ctrl+R            -    Reload From Disk
 Ctrl+C            -    Copy Selection
 Ctrl+K            -    Copy Colour
+Ctrl+Shift+T      -    Reopen closed file
 Space             -    Pause GIF
 Tab               -    Next Image
 Shift+Tab         -    Previous Image
@@ -172,12 +173,20 @@ void App::Update() {
 				SDL_Event quitEvent{};
 				quitEvent.type = SDL_QUIT;
 				SDL_PushEvent(&quitEvent);
+				return;
 			} else {
 				ImageEntity* image = nullptr;
 				if (TryGetCurrentImage(&image)) {
+					openFileHistory.push(image->fullPath);
 					DeleteImage(&*image);
 				}
 			}
+		}
+
+		// Reopen closed file
+		else if (GetShiftKeyDown() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_T) && !openFileHistory.empty()) {
+			QueueFileLoad(std::move(openFileHistory.top()));
+			openFileHistory.pop();
 		}
 	} else {
 		// Toggle grid
@@ -225,7 +234,7 @@ void App::Update() {
 
 			// Next/previous image
 			if (!images.empty() && GetKeyPressed(SDL_Scancode::SDL_SCANCODE_TAB)) {
-				if (GetKeyDown(SDL_Scancode::SDL_SCANCODE_LSHIFT) || GetKeyDown(SDL_Scancode::SDL_SCANCODE_RSHIFT)) {
+				if (GetShiftKeyDown()) {
 					activeImageIndex = (activeImageIndex + images.size() - 1) % images.size();
 				} else {
 					activeImageIndex = (activeImageIndex + 1) % images.size();
