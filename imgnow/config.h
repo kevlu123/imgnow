@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <string>
-#include <unordered_map>
+#include <map>
 
 struct Config {
 	Config();
@@ -10,7 +10,7 @@ struct Config {
 	int GetOr(const std::string& key, int default_) const;
 	bool TryGet(const std::string& key, int& value) const;
 private:
-	std::unordered_map<std::string, int32_t> ints;
+	std::map<std::string, int32_t> ints;
 	bool modified = false;
 	std::string filename;
 };
